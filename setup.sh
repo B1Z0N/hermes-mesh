@@ -104,8 +104,8 @@ INTERVAL="${INTERVAL:-15}"
 # ── question 8: auto-tagging ──────────────────────────────────
 echo ""
 echo "8. Auto-tag memory entries with machine name?"
-echo "   Adds a ⟨machine:$MACHINE_NAME⟩ tag to future memory entries"
-echo "   so $MACHINE_NAME-specific facts stay on $MACHINE_NAME."
+echo "   Adds a ⟨machine:${MACHINE_NAME}⟩ tag to future memory entries"
+echo "   so ${MACHINE_NAME}-specific facts stay on ${MACHINE_NAME}."
 read -p "   Enable? [Y/n]: " AUTO_TAG
 AUTO_TAG="${AUTO_TAG:-y}"
 
@@ -298,7 +298,7 @@ fi
 
 # ── auto-tagging seed ─────────────────────────────────────────
 if [ "$AUTO_TAG" = "y" ] || [ "$AUTO_TAG" = "Y" ]; then
-    TAG_LINE="New entries default to ⟨machine:$MACHINE_NAME⟩ unless explicitly global."
+    TAG_LINE="New entries default to ⟨machine:${MACHINE_NAME}⟩ unless explicitly global."
     if ! grep -q "⟨machine:" "$HERMES_HOME/memories/MEMORY.md" 2>/dev/null; then
         echo "" >> "$HERMES_HOME/memories/MEMORY.md"
         echo "$TAG_LINE" >> "$HERMES_HOME/memories/MEMORY.md"
