@@ -147,11 +147,7 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
                 their_tag, their_body, their_full = theirs_idx[key]
                 if their_tag and their_tag != machine:
                     kept.append(their_full)
-                # If base and theirs are identical → entry never existed locally,
-                # not a deletion. (Happens on first sync between independent agents.)
-                elif key in base_idx and base_idx[key][1] == their_body:
-                    kept.append(their_full)
-                # else: truly deleted locally → honour deletion
+                # else: truly deleted locally → honour deletion (skip)
 
     # Sort for stable output (prevents ordering ping-pong between machines)
     kept.sort()
