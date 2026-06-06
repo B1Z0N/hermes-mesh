@@ -56,7 +56,7 @@ ok "prerequisites met"
 echo ""
 
 # ── load or init config ───────────────────────────────────────
-WORKTREE_DEFAULT="$HOME/hermes-knowledge"
+WORKTREE_DEFAULT="$HOME/hermes-mesh"
 CONFIG_FILE=""
 if [ -f "$WORKTREE_DEFAULT/config.toml" ]; then
     CONFIG_FILE="$WORKTREE_DEFAULT/config.toml"
@@ -89,7 +89,7 @@ echo "   → $ROLE"
 # ── question 3: bare repo path (coordinator) ──────────────────
 BARE_REPO=""
 if [ "$ROLE" = "coordinator" ]; then
-    BARE_DEFAULT="$HOME/git/hermes-knowledge.git"
+    BARE_DEFAULT="$HOME/git/hermes-mesh.git"
     echo -n "3. Bare repo path [$BARE_DEFAULT]: "
 read BARE_REPO < "$TTY"
     BARE_REPO="${BARE_REPO:-$BARE_DEFAULT}"
@@ -109,7 +109,7 @@ COORDINATOR_URL=""
 if [ "$ROLE" = "worker" ]; then
     echo ""
     echo "5. Coordinator SSH URL"
-    echo "   Format: user@host:/path/to/hermes-knowledge.git"
+    echo "   Format: user@host:/path/to/hermes-mesh.git"
     echo -n "   URL: "
 read COORDINATOR_URL < "$TTY"
     [ -z "$COORDINATOR_URL" ] && fail "Coordinator URL is required for workers."
@@ -324,7 +324,7 @@ else
     # Linux: cron
     CRON_JOB="*/$INTERVAL * * * * bash $WORKTREE/sync.sh"
     TMP_CRON=$(mktemp)
-    crontab -l 2>/dev/null | grep -v "hermes-knowledge/sync.sh" > "$TMP_CRON" || true
+    crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON" || true
     echo "$CRON_JOB" >> "$TMP_CRON"
     crontab "$TMP_CRON" 2>/dev/null || fail "crontab install failed"
     rm -f "$TMP_CRON"

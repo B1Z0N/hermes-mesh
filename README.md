@@ -136,7 +136,7 @@ GitHub → coordinator pulls (update.sh) → pushes to bare repo → workers pic
 ## 🧹 Uninstall
 
 ```bash
-cd ~/hermes-knowledge && bash uninstall.sh
+cd ~/hermes-mesh && bash uninstall.sh
 ```
 
 Removes: worktree, bare repo (if coordinator), scheduler, logs, backups.  
