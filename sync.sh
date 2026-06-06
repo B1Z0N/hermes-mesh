@@ -2,6 +2,34 @@
 # Hermes Mesh — sync pipeline
 set -euo pipefail
 
+FORCE_PULL=false
+FORCE_PUSH=false
+
+usage() {
+    echo "Usage: sync.sh [--force-pull | --force-push]"
+    echo ""
+    echo "  (no flag)    Normal sync: pull, 3-way merge, export, push"
+    echo "  --force-pull  Discard ALL local changes — overwrite live memory + skills"
+    echo "                from bare repo. Use when local is broken."
+    echo "  --force-push  Discard ALL remote changes — overwrite bare repo with local"
+    echo "                memory + skills. Use when remote is stale/corrupt."
+    exit 1
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --force-pull) FORCE_PULL=true ;;
+        --force-push) FORCE_PUSH=true ;;
+        -h|--help)    usage ;;
+        *)            echo "Unknown flag: $arg"; usage ;;
+    esac
+done
+
+if $FORCE_PULL && $FORCE_PUSH; then
+    echo "ERROR: --force-pull and --force-push are mutually exclusive" >&2
+    exit 1
+fi
+
 WT="$(cd "$(dirname "$0")" && pwd)"
 CONFIG="${HERMES_MESH_CONFIG:-$WT/config.toml}"
 LOG="${HERMES_MESH_LOG:-$HOME/.hermes/logs/knowledge-sync.log}"
@@ -62,6 +90,100 @@ if [ "$ENABLED" != "true" ]; then
 fi
 
 cd "$WT"
+
+# ═══════════════════════════════════════════════════════════════
+# FORCE-PULL: overwrite local from remote
+# ═══════════════════════════════════════════════════════════════
+if $FORCE_PULL; then
+    log "=== FORCE-PULL [$MACHINE] ==="
+    BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+    log "fetching origin..."
+    git fetch origin 2>/dev/null || { log "fetch failed"; exit 1; }
+    log "hard-resetting to origin/$BRANCH (discarding all local worktree changes)"
+    git reset --hard "origin/$BRANCH"
+    REMOTE_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+    log "worktree reset to $REMOTE_HASH"
+
+    # Overwrite live memory from worktree
+    for PAIR in "MEMORY.md:memory/agent-memory.md" "USER.md:memory/user-profile.md"; do
+        LIVE_NAME="${PAIR%%:*}"
+        WT_REL="${PAIR##*:}"
+        LIVE="$HERMES_HOME/memories/$LIVE_NAME"
+        WT_FILE="$WT/$WT_REL"
+        [ -f "$WT_FILE" ] || { warn "missing worktree file: $WT_REL — skipping"; continue; }
+        mkdir -p "$(dirname "$LIVE")"
+        if [ -f "$LIVE" ] && diff -q "$LIVE" "$WT_FILE" >/dev/null 2>&1; then
+            log "memory $LIVE_NAME unchanged"
+        else
+            cp "$WT_FILE" "$LIVE"
+            log "memory $LIVE_NAME overwritten from worktree"
+        fi
+    done
+
+    # Overwrite live skills from worktree
+    if [ -d "$WT/skills" ]; then
+        mkdir -p "$HERMES_HOME/skills"
+        rsync -a --delete "$WT/skills/" "$HERMES_HOME/skills/"
+        log "skills overwritten from worktree (--delete)"
+    fi
+
+    log "HEALTH: OK (force-pull)"
+    exit 0
+fi
+
+# ═══════════════════════════════════════════════════════════════
+# FORCE-PUSH: overwrite remote from local
+# ═══════════════════════════════════════════════════════════════
+if $FORCE_PUSH; then
+    log "=== FORCE-PUSH [$MACHINE] ==="
+    BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
+
+    # Overwrite worktree memory from live
+    for PAIR in "MEMORY.md:memory/agent-memory.md" "USER.md:memory/user-profile.md"; do
+        LIVE_NAME="${PAIR%%:*}"
+        WT_REL="${PAIR##*:}"
+        LIVE="$HERMES_HOME/memories/$LIVE_NAME"
+        WT_FILE="$WT/$WT_REL"
+        [ -f "$LIVE" ] || { warn "missing live file: $LIVE — skipping"; continue; }
+        mkdir -p "$(dirname "$WT_FILE")"
+        if [ -f "$WT_FILE" ] && diff -q "$LIVE" "$WT_FILE" >/dev/null 2>&1; then
+            log "memory $LIVE_NAME unchanged"
+        else
+            cp "$LIVE" "$WT_FILE"
+            log "memory $LIVE_NAME overwritten from live"
+        fi
+    done
+
+    # Overwrite worktree skills from live
+    if [ -d "$HERMES_HOME/skills" ]; then
+        mkdir -p "$WT/skills"
+        rsync -a --delete "$HERMES_HOME/skills/" "$WT/skills/"
+        log "skills overwritten from live (--delete)"
+    fi
+
+    # Commit
+    git add -A
+    if git diff --cached --quiet 2>/dev/null; then
+        log "no changes to commit"
+    else
+        git commit -m "force-push from $MACHINE"
+        log "committed"
+    fi
+
+    # Force push
+    PUSH_ERR=$(mktemp)
+    if git push --force origin "$BRANCH" 2>"$PUSH_ERR"; then
+        log "force-pushed to origin/$BRANCH"
+    else
+        warn "force-push-failed"
+        log "  ⤷ $(head -2 "$PUSH_ERR" | tr '\n' ' ')"
+        cat "$PUSH_ERR" >> "$LOG"
+    fi
+    rm -f "$PUSH_ERR"
+
+    log "HEALTH: OK (force-push)"
+    exit 0
+fi
 
 # Pull
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
