@@ -168,7 +168,20 @@ _save_upstream
 # ── run sync to propagate ─────────────────────────────────────
 echo ""
 echo -n "Running sync... "
-bash "$WT/sync.sh" >/dev/null 2>&1 && ok "sync OK" || warn "sync had warnings — check log"
+SYNC_ERR=$(mktemp)
+if bash "$WT/sync.sh" 2>"$SYNC_ERR"; then
+    ok "sync OK"
+else
+    warn "sync failed"
+    echo ""
+    if [ -s "$SYNC_ERR" ]; then
+        echo "  Error output:"
+        sed 's/^/    /' "$SYNC_ERR"
+    fi
+    echo ""
+    echo "  Check log: ~/.hermes/logs/knowledge-sync.log"
+fi
+rm -f "$SYNC_ERR"
 
 echo ""
 echo -e "${GREEN}${BOLD}Update complete.${NC}"
