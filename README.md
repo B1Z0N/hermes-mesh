@@ -20,13 +20,6 @@ curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/main/setup.sh | ba
 
 Setup walks you through a few friendly questions and handles everything else. It detects whether you're on macOS or Linux, installs the right scheduler, and even teaches Hermes to auto-tag facts so your Mac's hardware specs don't end up on your VPS.
 
-**Coordinator first, then workers:**
-
-1. Run on your VPS → choose **role 1 (coordinator)**
-2. Run on each laptop/desktop → choose **role 2 (worker)**, give it the VPS SSH URL
-
-Workers need SSH key access to the coordinator. Test it first: `ssh user@your-vps`.
-
 ---
 
 ## 🧠 The idea
@@ -87,16 +80,6 @@ This preference applies everywhere — no tag needed
 | `bash update.sh` | Pull latest scripts from upstream |
 | `bash uninstall.sh` | Remove everything cleanly |
 
-### update.sh
-
-Three choices, no surprises:
-
-```
-1) Everything — full rebase onto upstream (recommended)
-2) Scripts only — just the tooling, leave your data alone
-3) Nothing — save the upstream URL and bail
-```
-
 ---
 
 ## 🔧 Config
@@ -125,7 +108,6 @@ interval_minutes = 15
 - **Git** — any modern version
 - **SSH** — workers need key access to coordinator
 - **cron** (Linux) or **launchd** (macOS, built-in)
-- **Hermes Agent** (optional — only for LLM merge; falls back gracefully)
 
 ---
 
@@ -139,18 +121,12 @@ Every sync cycle prints a `HEALTH: OK` line. Warnings tell you exactly what need
 
 ---
 
-## 🔄 How updates work
+## 🔄 Updates
 
-The scripts update themselves. When you push a new version to GitHub:
+When the new version is released you can run `update.sh`:
 
 ```
 GitHub → coordinator pulls (update.sh) → pushes to bare repo → workers pick it up next tick
-```
-
-Force an immediate update:
-
-```bash
-cd ~/hermes-knowledge && bash update.sh
 ```
 
 ---
@@ -172,11 +148,3 @@ Keeps: `~/.hermes/skills/` and `~/.hermes/memories/` — your knowledge is yours
 - **No silent failures** — every error is captured to the log with diagnostics
 - **Skills conflicts** — warn in red, don't block, local version wins
 - **Three-way memory merge** — `§`-entry diffing, LLM only when both sides disagree
-- **`set -euo pipefail`** throughout with safe guards for edge cases
-- **Coordinator is the hub** — workers sync to it, it never syncs to workers
-
----
-
-## 📄 License
-
-MIT
