@@ -351,7 +351,7 @@ echo "  Manual sync: cd $WORKTREE && bash sync.sh"
 echo "  Logs:        $HERMES_HOME/logs/knowledge-sync.log"
 echo "  Uninstall:   cd $WORKTREE && bash uninstall.sh"
 if [ "$ROLE" = "coordinator" ]; then
-    COORD_URL="\${USER}@\$(hostname -I | awk '{print \$1}'):$BARE_REPO"
+    COORD_URL="${USER}@$(hostname -I | awk '{print $1}'):$BARE_REPO"
     echo ""
     echo -e "  ${BOLD}Worker SSH URL:${NC}"
     echo "    $COORD_URL"
