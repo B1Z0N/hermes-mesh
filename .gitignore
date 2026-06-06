@@ -1,0 +1,10 @@
+# Machine-specific config — never commit real paths or machine names
+config.toml
+
+# macOS
+.DS_Store
+
+# Temp files
+*.swp
+*.swo
+*~
