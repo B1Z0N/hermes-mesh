@@ -3,6 +3,12 @@
 # curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/main/setup.sh | bash
 set -euo pipefail
 
+# When piped (curl | bash), stdin is the pipe — reads fail silently.
+# Rewire to the real terminal so interactive prompts work.
+if [ ! -t 0 ]; then
+    exec < /dev/tty
+fi
+
 RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BOLD='\033[1m'; NC='\033[0m'
 ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $*"; }
