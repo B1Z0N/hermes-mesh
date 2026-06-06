@@ -169,7 +169,7 @@ bash test.sh           # 47 tests: setup, merge, sync, uninstall, edge cases
 bash test.sh merge     # run only merge tests (incl. fixture-based LLM fallback tests)
 ```
 
-CI runs on every push and PR via GitHub Actions: shellcheck + full test suite. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+CI runs on every push and PR via GitHub Actions: shellcheck, Python syntax + import + lint (ruff), and the full test suite. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 Versioning follows [Keep a Changelog](https://keepachangelog.com/). Release tags (`v1.0.1`, etc.) are created on the main branch. See [`CHANGELOG.md`](CHANGELOG.md) for what changed between versions.
 
