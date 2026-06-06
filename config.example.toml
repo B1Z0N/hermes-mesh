@@ -6,7 +6,7 @@ enabled = true
 machine_name = "my-machine"          # unique per machine, lowercase
 hermes_home = "~/.hermes"            # where Hermes lives
 role = "worker"                      # "coordinator" or "worker"
-bare_repo = ""                       # coordinator only: ~/git/hermes-mesh.git
+bare_repo = ""                       # coordinator only: ~/git/hermes-knowledge.git
 upstream = "https://github.com/B1Z0N/hermes-mesh.git"
 
 [scheduler]

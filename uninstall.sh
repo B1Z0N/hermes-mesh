@@ -15,7 +15,7 @@ echo ""
 
 # ── find config ───────────────────────────────────────────────
 # 1) Try current directory (worktree)
-# 2) Try ~/hermes-mesh
+# 2) Try ~/hermes-knowledge
 CONFIG_FILE=""
 for d in "." "$HOME/hermes-knowledge"; do
     if [ -f "$d/config.toml" ]; then
@@ -56,8 +56,8 @@ fi
 
 # ── resolve worktree ──────────────────────────────────────────
 if [ -z "$WORKTREE" ]; then
-    if [ -f "$HOME/hermes-mesh/sync.sh" ]; then
-        WORKTREE="$HOME/hermes-mesh"
+    if [ -f "$HOME/hermes-knowledge/sync.sh" ]; then
+WORKTREE="$HOME/hermes-knowledge"
     elif [ -f "$(dirname "$0")/sync.sh" ] && [ "$(dirname "$0")" != "." ]; then
         WORKTREE="$(cd "$(dirname "$0")" && pwd)"
     fi
@@ -113,7 +113,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     fi
 else
     TMP_CRON=$(mktemp)
-    if crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON"; then
+    if crontab -l 2>/dev/null | grep -v "hermes-knowledge/sync.sh" > "$TMP_CRON"; then
         crontab "$TMP_CRON"
         ok "cron job removed"
     else

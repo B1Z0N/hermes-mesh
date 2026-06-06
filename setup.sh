@@ -46,7 +46,7 @@ ok "prerequisites met"
 echo ""
 
 # ── load or init config ───────────────────────────────────────
-WORKTREE_DEFAULT="$HOME/hermes-mesh"
+WORKTREE_DEFAULT="$HOME/hermes-knowledge"
 CONFIG_FILE=""
 if [ -f "$WORKTREE_DEFAULT/config.toml" ]; then
     CONFIG_FILE="$WORKTREE_DEFAULT/config.toml"
@@ -57,7 +57,8 @@ fi
 
 # ── question 1: machine name ──────────────────────────────────
 DEFAULT_NAME=$(hostname -s 2>/dev/null || echo "machine")
-read -p "1. Machine name [$DEFAULT_NAME]: " MACHINE_NAME
+echo -n "1. Machine name [$DEFAULT_NAME]: "
+read MACHINE_NAME
 MACHINE_NAME="${MACHINE_NAME:-$DEFAULT_NAME}"
 
 # ── question 2: role ──────────────────────────────────────────
@@ -65,7 +66,8 @@ echo ""
 echo "2. Role:"
 echo "   1) Coordinator — hosts bare Git repo (always-on VPS)"
 echo "   2) Worker — syncs to coordinator (laptop/desktop)"
-read -p "   Choose [1]: " ROLE_CHOICE
+echo -n "   Choose [1]: "
+read ROLE_CHOICE
 ROLE_CHOICE="${ROLE_CHOICE:-1}"
 if [ "$ROLE_CHOICE" = "1" ]; then
     ROLE="coordinator"
@@ -77,8 +79,9 @@ echo "   → $ROLE"
 # ── question 3: bare repo path (coordinator) ──────────────────
 BARE_REPO=""
 if [ "$ROLE" = "coordinator" ]; then
-    BARE_DEFAULT="$HOME/git/hermes-mesh.git"
-    read -p "3. Bare repo path [$BARE_DEFAULT]: " BARE_REPO
+    BARE_DEFAULT="$HOME/git/hermes-knowledge.git"
+    echo -n "3. Bare repo path [$BARE_DEFAULT]: "
+read BARE_REPO
     BARE_REPO="${BARE_REPO:-$BARE_DEFAULT}"
     BARE_REPO=$(eval echo "$BARE_REPO")  # expand ~
 else
@@ -86,7 +89,8 @@ else
 fi
 
 # ── question 4: worktree path ─────────────────────────────────
-read -p "4. Worktree path [$WORKTREE_DEFAULT]: " WORKTREE
+echo -n "4. Worktree path [$WORKTREE_DEFAULT]: "
+read WORKTREE
 WORKTREE="${WORKTREE:-$WORKTREE_DEFAULT}"
 WORKTREE=$(eval echo "$WORKTREE")
 
@@ -95,19 +99,22 @@ COORDINATOR_URL=""
 if [ "$ROLE" = "worker" ]; then
     echo ""
     echo "5. Coordinator SSH URL"
-    echo "   Format: user@host:/path/to/hermes-mesh.git"
-    read -p "   URL: " COORDINATOR_URL
+    echo "   Format: user@host:/path/to/hermes-knowledge.git"
+    echo -n "   URL: "
+read COORDINATOR_URL
     [ -z "$COORDINATOR_URL" ] && fail "Coordinator URL is required for workers."
 fi
 
 # ── question 6: hermes home ───────────────────────────────────
 HERMES_DEFAULT="$HOME/.hermes"
-read -p "6. Hermes home [$HERMES_DEFAULT]: " HERMES_HOME
+echo -n "6. Hermes home [$HERMES_DEFAULT]: "
+read HERMES_HOME
 HERMES_HOME="${HERMES_HOME:-$HERMES_DEFAULT}"
 HERMES_HOME=$(eval echo "$HERMES_HOME")
 
 # ── question 7: sync interval ─────────────────────────────────
-read -p "7. Sync interval (minutes) [15]: " INTERVAL
+echo -n "7. Sync interval (minutes) [15]: "
+read INTERVAL
 INTERVAL="${INTERVAL:-15}"
 
 # ── question 8: auto-tagging ──────────────────────────────────
@@ -115,7 +122,8 @@ echo ""
 echo "8. Auto-tag memory entries with machine name?"
 echo "   Adds a ⟨machine:${MACHINE_NAME}⟩ tag to future memory entries"
 echo "   so ${MACHINE_NAME}-specific facts stay on ${MACHINE_NAME}."
-read -p "   Enable? [Y/n]: " AUTO_TAG
+echo -n "   Enable? [Y/n]: "
+read AUTO_TAG
 AUTO_TAG="${AUTO_TAG:-y}"
 
 # ── question 9: review ────────────────────────────────────────
@@ -134,7 +142,8 @@ echo "  Hermes home:  $HERMES_HOME"
 echo "  Interval:     ${INTERVAL}m"
 echo "  Auto-tag:     $AUTO_TAG"
 echo ""
-read -p "Proceed? [Y/n]: " CONFIRM
+echo -n "Proceed? [Y/n]: "
+read CONFIRM
 CONFIRM="${CONFIRM:-y}"
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     echo "Aborted."
@@ -305,7 +314,7 @@ else
     # Linux: cron
     CRON_JOB="*/$INTERVAL * * * * bash $WORKTREE/sync.sh"
     TMP_CRON=$(mktemp)
-    crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON" || true
+    crontab -l 2>/dev/null | grep -v "hermes-knowledge/sync.sh" > "$TMP_CRON" || true
     echo "$CRON_JOB" >> "$TMP_CRON"
     crontab "$TMP_CRON" 2>/dev/null || fail "crontab install failed"
     rm -f "$TMP_CRON"
@@ -326,7 +335,7 @@ fi
 echo ""
 if [ ! -f "$WORKTREE/sync.sh" ]; then
     warn "sync.sh not found in worktree — bootstrap may have failed"
-    echo "  Copy it manually: cp /home/hermes/hermes-mesh/sync.sh $WORKTREE/"
+    echo "  Copy it manually: cp $SCRIPT_DIR/sync.sh $WORKTREE/"
     echo "  Then run: cd $WORKTREE && bash sync.sh"
 else
     echo -n "Running first sync... "
