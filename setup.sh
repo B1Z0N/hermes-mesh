@@ -13,6 +13,9 @@ echo -e "${BOLD}Hermes Mesh Setup${NC}"
 echo "===================="
 echo ""
 
+# Capture source directory now — before any 'cd' changes where $0 resolves
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # ── prerequisites ──────────────────────────────────────────────
 echo "Checking prerequisites..."
 missing=""
@@ -218,7 +221,6 @@ if [ "$ROLE" = "coordinator" ]; then
         echo -n "Seeding initial bootstrap commit... "
 
         # Copy all scripts and config files from the source repo
-        SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
         if rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
               --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/" 2>/tmp/hermes-setup-rsync.err; then
             :
