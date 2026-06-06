@@ -18,7 +18,9 @@ expand_path() {
 
 # Interactive prompt with default, reading from real terminal
 prompt() {
-    local label="$1" default="$2" var="$3"
+    local label="$1" default="$2"
+    local var="$3"
+    local input
     echo -n "$label [$default]: "
     read -r input < "$TTY"
     printf -v "$var" '%s' "${input:-$default}"
