@@ -219,15 +219,10 @@ if [ "$ROLE" = "coordinator" ]; then
 
         # Copy all scripts and config files from the source repo
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        COPIED=0
-        for f in .gitignore README.md config.example.toml LICENSE \
-                 sync.sh memory-merge.py setup.sh uninstall.sh update.sh; do
-            if [ -f "$SCRIPT_DIR/$f" ] && [ ! -f "$WORKTREE/$f" ]; then
-                cp "$SCRIPT_DIR/$f" "$WORKTREE/$f"
-                COPIED=$((COPIED + 1))
-            fi
-        done
+        rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
+              --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/"
         chmod +x "$WORKTREE"/*.sh 2>/dev/null || true
+        COPIED=$(ls "$WORKTREE"/*.sh "$WORKTREE"/*.md "$WORKTREE"/.gitignore "$WORKTREE"/LICENSE "$WORKTREE"/config.example.toml 2>/dev/null | wc -l)
 
         # Seed memory files if empty
         [ -s "$WORKTREE/memory/agent-memory.md" ] || echo "# Agent Memory" > "$WORKTREE/memory/agent-memory.md"
