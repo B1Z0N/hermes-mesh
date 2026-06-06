@@ -77,8 +77,8 @@ This preference applies everywhere — no tag needed
 |---|---|
 | `bash setup.sh` | Interactive setup — 9 friendly questions, zero flags |
 | `bash sync.sh` | Manual sync cycle (cron runs this automatically) |
-| `bash sync.sh --force-push` | Overwrite remote with local — resolve conflicts one-sidedly |
-| `bash sync.sh --force-pull` | Overwrite local with remote — resolve conflicts one-sidedly |
+| `bash sync.sh --force-push` | Overwrite bare repo with local (step 1 of 2) |
+| `bash sync.sh --force-pull` | Overwrite local with bare repo (step 2 of 2) |
 | `bash update.sh` | Pull latest scripts from upstream |
 | `bash uninstall.sh` | Remove everything cleanly |
 

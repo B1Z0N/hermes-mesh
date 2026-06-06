@@ -289,9 +289,9 @@ if [ -d "$SKILLS_SRC" ] && [ -d "$SKILLS_DST" ]; then
         echo "" >&2
         echo -e "\033[31m⚠️  SKILL CONFLICTS\033[0m — files changed on both $MACHINE and remote:" >&2
         while IFS= read -r f; do [ -n "$f" ] && echo -e "   \033[31m$f\033[0m" >&2; done <<< "$CONFLICTS"
-        echo -e "\033[33m→ Local version kept. Resolve: merge manually, or use one of:\033[0m" >&2
-        echo -e "\033[33m   sync.sh --force-push  (overwrite remote with local)\033[0m" >&2
-        echo -e "\033[33m   sync.sh --force-pull  (overwrite local with remote)\033[0m" >&2
+        echo -e "\033[33m→ Local version kept. To resolve one-sidedly:\033[0m" >&2
+        echo -e "\033[33m   1. sync.sh --force-push  on the machine whose version should win\033[0m" >&2
+        echo -e "\033[33m   2. sync.sh --force-pull  on the other machine\033[0m" >&2
         echo "" >&2
         echo "" >&2
     fi
