@@ -77,6 +77,8 @@ This preference applies everywhere — no tag needed
 |---|---|
 | `bash setup.sh` | Interactive setup — 9 friendly questions, zero flags |
 | `bash sync.sh` | Manual sync cycle (cron runs this automatically) |
+| `bash sync.sh --force-push` | Overwrite remote with local — resolve conflicts one-sidedly |
+| `bash sync.sh --force-pull` | Overwrite local with remote — resolve conflicts one-sidedly |
 | `bash update.sh` | Pull latest scripts from upstream |
 | `bash uninstall.sh` | Remove everything cleanly |
 
@@ -146,5 +148,5 @@ Keeps: `~/.hermes/skills/` and `~/.hermes/memories/` — your knowledge is yours
 
 - **Export before import** — local edits are never destroyed by a stale remote copy
 - **No silent failures** — every error is captured to the log with diagnostics
-- **Skills conflicts** — warn in red, don't block, local version wins
+- **Skills conflicts** — warn in red with `--force-push`/`--force-pull` hint, don't block, local version wins
 - **Three-way memory merge** — `§`-entry diffing, LLM only when both sides disagree
