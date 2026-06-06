@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1 — 2026-06-06
+
+### Fixes (peer review)
+- LLM fallback now writes `warn("llm-fallback")` to the health log summary instead of only stderr
+- Added `-c` (checksum) to all 5 rsync calls — prevents spurious commits from timestamp-only diffs
+- Added GitHub Actions CI: shellcheck + test suite on every push
+- Added git version tags (v1.0.1)
+- Added `curl | bash` integrity note to setup.sh
+
 ## 1.0.0 — 2026-06-06
 
 Initial stable release.

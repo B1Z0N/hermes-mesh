@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Hermes Mesh — interactive setup
 # curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/main/setup.sh | bash
+#
+# SECURITY NOTE: This script is delivered over HTTPS (TLS) and cloned from
+# GitHub via HTTPS. There is no GPG signature or pinned commit hash — if the
+# GitHub account or raw.githubusercontent.com is compromised, the script could
+# be tampered with. For a personal tool this is acceptable; if you share this
+# with others, consider pinning a release tag or verifying a SHA256 checksum.
 set -euo pipefail
 
 # ── helpers ────────────────────────────────────────────────────

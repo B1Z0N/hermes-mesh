@@ -123,7 +123,7 @@ if $FORCE_PULL; then
     # Overwrite live skills from worktree
     if [ -d "$WT/skills" ]; then
         mkdir -p "$HERMES_HOME/skills"
-        rsync -a --delete "$WT/skills/" "$HERMES_HOME/skills/"
+        rsync -ac --delete "$WT/skills/" "$HERMES_HOME/skills/"
         log "skills overwritten from worktree (--delete)"
     fi
 
@@ -157,7 +157,7 @@ if $FORCE_PUSH; then
     # Overwrite worktree skills from live
     if [ -d "$HERMES_HOME/skills" ]; then
         mkdir -p "$WT/skills"
-        rsync -a --delete "$HERMES_HOME/skills/" "$WT/skills/"
+        rsync -ac --delete "$HERMES_HOME/skills/" "$WT/skills/"
         log "skills overwritten from live (--delete)"
     fi
 
@@ -248,7 +248,13 @@ for PAIR in "MEMORY.md:memory/agent-memory.md" "USER.md:memory/user-profile.md";
     git show "$MERGE_BASE:$WT_REL" > "$BASE_TMP" 2>/dev/null || true
     log "MERGE $LIVE_NAME"
     MERGED_TMP=$(mktemp)
-    if python3 "$WT/memory-merge.py" --machine "$MACHINE" --base "$BASE_TMP" --ours "$LIVE" --theirs "$WT_FILE" --out "$MERGED_TMP" 2>&1 | tee -a "$LOG"; then
+    MERGE_LOG=$(mktemp)
+    if python3 "$WT/memory-merge.py" --machine "$MACHINE" --base "$BASE_TMP" --ours "$LIVE" --theirs "$WT_FILE" --out "$MERGED_TMP" >"$MERGE_LOG" 2>&1; then
+        cat "$MERGE_LOG" >> "$LOG"
+        if grep -qP 'FALLBACKS=[1-9]' "$MERGE_LOG"; then
+            N=$(grep -oP 'FALLBACKS=\K\d+' "$MERGE_LOG" || echo "?")
+            warn "llm-fallback:$LIVE_NAME($N)"
+        fi
         diff -q "$MERGED_TMP" "$WT_FILE" >/dev/null 2>&1 || cp "$MERGED_TMP" "$WT_FILE"
         FILTERED_TMP=$(mktemp)
         if python3 "$WT/memory-merge.py" --filter --machine "$MACHINE" --infile "$MERGED_TMP" --out "$FILTERED_TMP"; then
@@ -258,7 +264,7 @@ for PAIR in "MEMORY.md:memory/agent-memory.md" "USER.md:memory/user-profile.md";
     else
         warn "merge-failed:$LIVE_NAME"
     fi
-    rm -f "$MERGED_TMP" "$BASE_TMP"
+    rm -f "$MERGED_TMP" "$BASE_TMP" "$MERGE_LOG"
 done
 
 # Skills sync
@@ -306,15 +312,15 @@ if [ -d "$SKILLS_SRC" ] && [ -d "$SKILLS_DST" ]; then
     while IFS= read -r f; do [ -n "$f" ] && echo "$f" >> "$EXCLUDE_FILE"; done < "$REMOTE_DELETED"
     RSYNC_EXPORT_ERR=$(mktemp)
     if [ -s "$EXCLUDE_FILE" ]; then
-        rsync -a --exclude-from="$EXCLUDE_FILE" "$SKILLS_DST/" "$SKILLS_SRC/" 2>"$RSYNC_EXPORT_ERR" || { warn "skill-export"; log "  ⤷ $(head -2 "$RSYNC_EXPORT_ERR" | tr '\n' ' ')"; cat "$RSYNC_EXPORT_ERR" >> "$LOG"; }
+        rsync -ac --exclude-from="$EXCLUDE_FILE" "$SKILLS_DST/" "$SKILLS_SRC/" 2>"$RSYNC_EXPORT_ERR" || { warn "skill-export"; log "  ⤷ $(head -2 "$RSYNC_EXPORT_ERR" | tr '\n' ' ')"; cat "$RSYNC_EXPORT_ERR" >> "$LOG"; }
     else
-        rsync -a "$SKILLS_DST/" "$SKILLS_SRC/" 2>"$RSYNC_EXPORT_ERR" || { warn "skill-export"; log "  ⤷ $(head -2 "$RSYNC_EXPORT_ERR" | tr '\n' ' ')"; cat "$RSYNC_EXPORT_ERR" >> "$LOG"; }
+        rsync -ac "$SKILLS_DST/" "$SKILLS_SRC/" 2>"$RSYNC_EXPORT_ERR" || { warn "skill-export"; log "  ⤷ $(head -2 "$RSYNC_EXPORT_ERR" | tr '\n' ' ')"; cat "$RSYNC_EXPORT_ERR" >> "$LOG"; }
     fi
     rm -f "$RSYNC_EXPORT_ERR"
 
     # Import: worktree → live
     RSYNC_IMPORT_ERR=$(mktemp)
-    rsync -a --delete "$SKILLS_SRC/" "$SKILLS_DST/" 2>"$RSYNC_IMPORT_ERR" || { warn "skill-import"; log "  ⤷ $(head -2 "$RSYNC_IMPORT_ERR" | tr '\n' ' ')"; cat "$RSYNC_IMPORT_ERR" >> "$LOG"; }
+    rsync -ac --delete "$SKILLS_SRC/" "$SKILLS_DST/" 2>"$RSYNC_IMPORT_ERR" || { warn "skill-import"; log "  ⤷ $(head -2 "$RSYNC_IMPORT_ERR" | tr '\n' ' ')"; cat "$RSYNC_IMPORT_ERR" >> "$LOG"; }
     rm -f "$RSYNC_IMPORT_ERR"
 
     log "skills synced"

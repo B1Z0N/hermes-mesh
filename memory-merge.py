@@ -101,7 +101,7 @@ def run_llm(prompt: str, timeout: int = 120) -> str | None:
 
 
 def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
-                    machine: str) -> str:
+                    machine: str) -> tuple[str, int]:
     base = parse_entries(Path(base_path).read_text())
     ours = parse_entries(Path(ours_path).read_text())
     theirs = parse_entries(Path(theirs_path).read_text())
@@ -119,6 +119,7 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
     all_keys = set(base_idx) | set(ours_idx) | set(theirs_idx)
     kept: list[str] = []
     llm_calls = 0
+    fallbacks = 0
 
     for key in all_keys:
         in_base = key in base_idx
@@ -152,6 +153,7 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
                         kept.append(resolved)
                 else:
                     kept.append(our_full)  # fallback to local, keep tag
+                    fallbacks += 1
         elif in_ours and not in_theirs:
             if not in_base:
                 _, _, our_full = ours_idx[key]
@@ -177,7 +179,7 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
     else:
         print("  no conflicts — deterministic merge", file=sys.stderr)
 
-    return '\n§\n'.join(kept) + '\n'
+    return '\n§\n'.join(kept) + '\n', fallbacks
 
 
 def filter_for_machine(text: str, machine: str) -> str:
@@ -213,9 +215,10 @@ def main():
     else:
         if not (args.base and args.ours and args.theirs):
             ap.error('--base, --ours, --theirs required for merge mode')
-        merged = three_way_merge(args.base, args.ours, args.theirs, args.machine)
+        merged, fallbacks = three_way_merge(args.base, args.ours, args.theirs, args.machine)
         Path(args.out).write_text(merged)
         print(f"  merge written to {args.out}", file=sys.stderr)
+        print(f"FALLBACKS={fallbacks}")
 
 
 if __name__ == '__main__':
