@@ -32,8 +32,13 @@ validate_interval() {
 }
 
 # ── tty detection ──────────────────────────────────────────────
-TTY=/dev/tty
-[ -t 0 ] && TTY=/dev/stdin  # not piped, use normal stdin
+if [ -t 0 ]; then
+    TTY=/dev/stdin       # running directly, read from terminal
+elif [ -t 1 ]; then
+    TTY=/dev/tty         # piped but stdout is a terminal (curl | bash)
+else
+    TTY=/dev/stdin       # CI / fully non-interactive
+fi
 
 echo ""
 echo -e "${BOLD}Hermes Mesh Setup${NC}"
