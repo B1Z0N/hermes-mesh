@@ -18,8 +18,19 @@ echo -e "${BOLD}Hermes Mesh Setup${NC}"
 echo "===================="
 echo ""
 
-# Capture source directory now — before any 'cd' changes where $0 resolves
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Capture source directory now — before any 'cd' changes where $0 resolves.
+# When piped (curl | bash), $0 is 'bash' so dirname resolves to cwd — wrong.
+# Clone the repo to a temp dir so we have actual files to seed from.
+if [ ! -t 0 ]; then
+    SCRIPT_DIR=$(mktemp -d)
+    trap "rm -rf $SCRIPT_DIR" EXIT
+    git clone --depth 1 https://github.com/B1Z0N/hermes-mesh.git "$SCRIPT_DIR" 2>/dev/null || {
+        echo "Failed to clone hermes-mesh repo for seeding." >&2
+        exit 1
+    }
+else
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
 
 # ── prerequisites ──────────────────────────────────────────────
 echo "Checking prerequisites..."
