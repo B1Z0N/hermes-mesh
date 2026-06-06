@@ -3,11 +3,10 @@
 # curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/main/setup.sh | bash
 set -euo pipefail
 
-# When piped (curl | bash), stdin is the pipe — reads fail silently.
-# Rewire to the real terminal so interactive prompts work.
-if [ ! -t 0 ]; then
-    exec < /dev/tty
-fi
+# When piped (curl | bash), stdin is the pipe — read fails silently.
+# Redirect each prompt to the real terminal so interactive input works.
+TTY=/dev/tty
+[ -t 0 ] && TTY=/dev/stdin  # not piped, use normal stdin
 
 RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BOLD='\033[1m'; NC='\033[0m'
 ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
@@ -58,7 +57,7 @@ fi
 # ── question 1: machine name ──────────────────────────────────
 DEFAULT_NAME=$(hostname -s 2>/dev/null || echo "machine")
 echo -n "1. Machine name [$DEFAULT_NAME]: "
-read MACHINE_NAME
+read MACHINE_NAME < "$TTY"
 MACHINE_NAME="${MACHINE_NAME:-$DEFAULT_NAME}"
 
 # ── question 2: role ──────────────────────────────────────────
@@ -67,7 +66,7 @@ echo "2. Role:"
 echo "   1) Coordinator — hosts bare Git repo (always-on VPS)"
 echo "   2) Worker — syncs to coordinator (laptop/desktop)"
 echo -n "   Choose [1]: "
-read ROLE_CHOICE
+read ROLE_CHOICE < "$TTY"
 ROLE_CHOICE="${ROLE_CHOICE:-1}"
 if [ "$ROLE_CHOICE" = "1" ]; then
     ROLE="coordinator"
@@ -81,7 +80,7 @@ BARE_REPO=""
 if [ "$ROLE" = "coordinator" ]; then
     BARE_DEFAULT="$HOME/git/hermes-knowledge.git"
     echo -n "3. Bare repo path [$BARE_DEFAULT]: "
-read BARE_REPO
+read BARE_REPO < "$TTY"
     BARE_REPO="${BARE_REPO:-$BARE_DEFAULT}"
     BARE_REPO=$(eval echo "$BARE_REPO")  # expand ~
 else
@@ -90,7 +89,7 @@ fi
 
 # ── question 4: worktree path ─────────────────────────────────
 echo -n "4. Worktree path [$WORKTREE_DEFAULT]: "
-read WORKTREE
+read WORKTREE < "$TTY"
 WORKTREE="${WORKTREE:-$WORKTREE_DEFAULT}"
 WORKTREE=$(eval echo "$WORKTREE")
 
@@ -101,20 +100,20 @@ if [ "$ROLE" = "worker" ]; then
     echo "5. Coordinator SSH URL"
     echo "   Format: user@host:/path/to/hermes-knowledge.git"
     echo -n "   URL: "
-read COORDINATOR_URL
+read COORDINATOR_URL < "$TTY"
     [ -z "$COORDINATOR_URL" ] && fail "Coordinator URL is required for workers."
 fi
 
 # ── question 6: hermes home ───────────────────────────────────
 HERMES_DEFAULT="$HOME/.hermes"
 echo -n "6. Hermes home [$HERMES_DEFAULT]: "
-read HERMES_HOME
+read HERMES_HOME < "$TTY"
 HERMES_HOME="${HERMES_HOME:-$HERMES_DEFAULT}"
 HERMES_HOME=$(eval echo "$HERMES_HOME")
 
 # ── question 7: sync interval ─────────────────────────────────
 echo -n "7. Sync interval (minutes) [15]: "
-read INTERVAL
+read INTERVAL < "$TTY"
 INTERVAL="${INTERVAL:-15}"
 
 # ── question 8: auto-tagging ──────────────────────────────────
@@ -123,7 +122,7 @@ echo "8. Auto-tag memory entries with machine name?"
 echo "   Adds a ⟨machine:${MACHINE_NAME}⟩ tag to future memory entries"
 echo "   so ${MACHINE_NAME}-specific facts stay on ${MACHINE_NAME}."
 echo -n "   Enable? [Y/n]: "
-read AUTO_TAG
+read AUTO_TAG < "$TTY"
 AUTO_TAG="${AUTO_TAG:-y}"
 
 # ── question 9: review ────────────────────────────────────────
@@ -143,7 +142,7 @@ echo "  Interval:     ${INTERVAL}m"
 echo "  Auto-tag:     $AUTO_TAG"
 echo ""
 echo -n "Proceed? [Y/n]: "
-read CONFIRM
+read CONFIRM < "$TTY"
 CONFIRM="${CONFIRM:-y}"
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     echo "Aborted."
