@@ -302,7 +302,23 @@ fi
 # ── first sync ────────────────────────────────────────────────
 echo ""
 echo -n "Running first sync... "
-bash "$WORKTREE/sync.sh" >/dev/null 2>&1 && ok "first sync OK" || warn "first sync had warnings — check log: $HERMES_HOME/logs/knowledge-sync.log"
+SYNC_ERR=$(mktemp)
+if bash "$WORKTREE/sync.sh" >"$HERMES_HOME/logs/knowledge-sync.log" 2>"$SYNC_ERR"; then
+    ok "first sync OK"
+else
+    warn "first sync failed"
+    echo ""
+    if [ -s "$SYNC_ERR" ]; then
+        echo "  Error output:"
+        sed 's/^/    /' "$SYNC_ERR"
+        cat "$SYNC_ERR" >> "$HERMES_HOME/logs/knowledge-sync.log"
+    fi
+    if [ -f "$HERMES_HOME/logs/knowledge-sync.log" ]; then
+        echo ""
+        echo "  Full log: $HERMES_HOME/logs/knowledge-sync.log"
+    fi
+fi
+rm -f "$SYNC_ERR"
 
 # ── display skill conflicts from first sync ──────────────────
 if grep -q 'SKILL CONFLICTS' "$HERMES_HOME/logs/knowledge-sync.log" 2>/dev/null; then
