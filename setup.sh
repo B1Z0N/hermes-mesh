@@ -212,15 +212,23 @@ mkdir -p "$(dirname "$HERMES_HOME/logs/knowledge-sync.log")"
 
 # ── seed initial commit if bare repo is empty ─────────────────
 if [ "$ROLE" = "coordinator" ]; then
-    REMOTE_HEAD=$(git ls-remote origin HEAD 2>/dev/null | awk '{print $1}' || echo "")
-    if [ -z "$REMOTE_HEAD" ]; then
+    WORKTREE_COMMITS=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+    if [ "$WORKTREE_COMMITS" -eq 0 ]; then
         echo ""
         echo -n "Seeding initial bootstrap commit... "
 
         # Copy all scripts and config files from the source repo
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
-              --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/"
+        if rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
+              --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/" 2>/tmp/hermes-setup-rsync.err; then
+            :
+        else
+            echo ""  # finish the "Seeding..." line
+            warn "rsync failed"
+            sed 's/^/      /' /tmp/hermes-setup-rsync.err
+            fail "Could not copy files from $SCRIPT_DIR to $WORKTREE"
+        fi
+        rm -f /tmp/hermes-setup-rsync.err
         chmod +x "$WORKTREE"/*.sh 2>/dev/null || true
         COPIED=$(ls "$WORKTREE"/*.sh "$WORKTREE"/*.md "$WORKTREE"/.gitignore "$WORKTREE"/LICENSE "$WORKTREE"/config.example.toml 2>/dev/null | wc -l)
 
