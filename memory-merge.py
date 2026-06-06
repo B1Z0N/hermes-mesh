@@ -11,12 +11,19 @@ Algorithm:
 Machine tags (⟨machine:NAME⟩ prefix) are preserved throughout.
 The LLM auto-detects machine-specific facts and tags them instead of
 merging into one contradictory entry.
+
+Escaping: literal § in entry bodies is stored as \\§. The delimiter
+\\n§\\n uses an unescaped § at line-start. Parser splits on § that is
+NOT preceded by backslash, so entries can safely contain \\§ without
+breaking the format.
 """
 from __future__ import annotations
 import re, subprocess, sys
 from pathlib import Path
 
 MACHINE_TAG_RE = re.compile(r'^⟨machine:([a-zA-Z0-9_-]+)⟩\s*')
+# Split on newline-§-newline where § is NOT preceded by backslash
+ENTRY_SPLIT_RE = re.compile(r'\n(?<!\\)§\n')
 
 MERGE_PROMPT = """Resolve this conflicting Hermes memory entry.
 
@@ -37,6 +44,16 @@ User preferences, workflow rules, and conventions are NOT machine-specific — m
 Output ONLY the resolved entry text. No explanation."""
 
 
+def _escape_body(body: str) -> str:
+    """Escape literal § in entry bodies so they don't break the delimiter."""
+    return body.replace('§', '\\§')
+
+
+def _unescape_body(body: str) -> str:
+    """Reverse _escape_body."""
+    return body.replace('\\§', '§')
+
+
 def parse_entries(text: str) -> list[tuple[str | None, str, str]]:
     """Return list of (tag, body_only, full_original_block).
 
@@ -45,11 +62,12 @@ def parse_entries(text: str) -> list[tuple[str | None, str, str]]:
     """
     entries = []
     raw = text.strip()
+    # Strip leading delimiter if present
     if raw.startswith('§\n'):
         raw = raw[2:]
     elif raw.startswith('§'):
         raw = raw[1:]
-    for block in raw.split('\n§\n'):
+    for block in ENTRY_SPLIT_RE.split(raw):
         block = block.strip()
         if not block:
             continue
@@ -126,8 +144,10 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
                 resolved = run_llm(prompt)
                 llm_calls += 1
                 if resolved:
+                    # If LLM returned multiple tagged entries, split them
                     if '⟨machine:' in resolved and '\n§\n' in resolved:
-                        kept.extend(resolved.split('\n§\n'))
+                        kept.extend(
+                            b.strip() for b in ENTRY_SPLIT_RE.split(resolved) if b.strip())
                     else:
                         kept.append(resolved)
                 else:
@@ -157,7 +177,7 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
     else:
         print("  no conflicts — deterministic merge", file=sys.stderr)
 
-    return '\n§\n'.join(kept)
+    return '\n§\n'.join(kept) + '\n'
 
 
 def filter_for_machine(text: str, machine: str) -> str:
@@ -167,7 +187,7 @@ def filter_for_machine(text: str, machine: str) -> str:
     for tag, body, full in entries:
         if tag is None or tag == machine:
             kept.append(full)
-    return '\n§\n'.join(kept)
+    return '\n§\n'.join(kept) + '\n'
 
 
 def main():

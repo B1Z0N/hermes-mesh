@@ -29,6 +29,8 @@ assert_contains() {
 assert_file() { assert "[ -f '$1' ]" "$2"; }
 assert_dir() { assert "[ -d '$1' ]" "$2"; }
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # ── setup harness ──────────────────────────────────────────────
 setup_test_env() {
     local name="$1"
@@ -40,7 +42,6 @@ setup_test_env() {
     # Copy scripts to a local "dev repo" for setup.sh to seed from
     DEV_REPO="$TEST_HOME/hermes-mesh-dev"
     mkdir -p "$DEV_REPO"
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     rsync -a --exclude='.git' --exclude='test.sh' "$SCRIPT_DIR/" "$DEV_REPO/"
     chmod +x "$DEV_REPO"/*.sh 2>/dev/null || true
 }
@@ -221,6 +222,48 @@ test_merge_same_entry_both_edited() {
     rm -f "$base" "$ours" "$theirs" "$out"
 }
 
+# ── fixture-based merge tests ──────────────────────────────────
+test_merge_fixtures() {
+    echo -e "\n${BOLD}── merge: fixture tests${NC}"
+    local fixtures_dir="$SCRIPT_DIR/tests/fixtures"
+    [ -d "$fixtures_dir" ] || { skip "fixtures dir not found"; return; }
+
+    local passed=0 failed=0
+    for base_file in "$fixtures_dir"/*_base.md; do
+        local name=$(basename "$base_file" _base.md)
+        local ours="$fixtures_dir/${name}_ours.md"
+        local theirs="$fixtures_dir/${name}_theirs.md"
+        local expected="$fixtures_dir/${name}_expected.md"
+        [ -f "$ours" ] || continue
+        [ -f "$theirs" ] || continue
+
+        local out=$(mktemp)
+        python3 "$SCRIPT_DIR/memory-merge.py" --machine "a" --base "$base_file" \
+            --ours "$ours" --theirs "$theirs" --out "$out" 2>/dev/null
+
+        if [ -f "$expected" ]; then
+            if diff -q "$out" "$expected" >/dev/null 2>&1; then
+                pass "fixture: $name"
+                passed=$((passed + 1))
+            else
+                fail "fixture: $name — output differs from expected"
+                failed=$((failed + 1))
+            fi
+        else
+            # No expected file — just verify non-empty output (for LLM-dependent tests)
+            if [ -s "$out" ]; then
+                pass "fixture: $name (LLM/non-deterministic — output accepted)"
+                passed=$((passed + 1))
+            else
+                fail "fixture: $name — empty output"
+                failed=$((failed + 1))
+            fi
+        fi
+        rm -f "$out"
+    done
+    [ "$failed" -eq 0 ] || fail "$failed fixture(s) failed"
+}
+
 # ═══════════════════════════════════════════════════════════════
 # SYNC TESTS
 # ═══════════════════════════════════════════════════════════════
@@ -369,11 +412,12 @@ test_piped_install_detection() {
 # RUNNER
 # ═══════════════════════════════════════════════════════════════
 RUN_ALL=true
-[ $# -gt 0 ] && RUN_ALL=false
+SELECTED_TAGS=""
+[ $# -gt 0 ] && RUN_ALL=false && SELECTED_TAGS=" $* "
 
 run_section() {
     local tag="$1"; shift
-    if $RUN_ALL || [[ " $* " == *" $tag "* ]]; then
+    if $RUN_ALL || [[ "$SELECTED_TAGS" == *" $tag "* ]]; then
         "$@" || true  # don't let one failure kill the suite
     fi
 }
@@ -393,6 +437,7 @@ run_section merge test_merge_local_deletion
 run_section merge test_merge_other_machine_not_deleted
 run_section merge test_merge_both_edited_different
 run_section merge test_merge_same_entry_both_edited
+run_section merge test_merge_fixtures
 
 run_section sync test_sync_normal
 run_section sync test_sync_force_push

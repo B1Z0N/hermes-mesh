@@ -367,6 +367,22 @@ fi
 
 find "$HERMES_HOME/knowledge-sync-backups" -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + 2>/dev/null || true
 
+# ── periodic history squash (manual: sync.sh --squash) ────────
+if [ "${1:-}" = "--squash" ]; then
+    TOTAL=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+    if [ "$TOTAL" -gt 50 ]; then
+        BOOTSTRAP=$(git rev-list --max-parents=0 HEAD)
+        log "squashing $TOTAL commits into one (keeping bootstrap $BOOTSTRAP)"
+        git reset --soft "$BOOTSTRAP"
+        git commit -m "sync history squashed ($TOTAL cycles)"
+        git push --force origin "$BRANCH" && log "squashed and force-pushed" || warn "squash-push-failed"
+    else
+        log "only $TOTAL commits — nothing to squash (needs >50)"
+    fi
+    log "HEALTH: OK (squash)"
+    exit 0
+fi
+
 if $HEALTH_OK; then
     log "HEALTH: OK"
 else

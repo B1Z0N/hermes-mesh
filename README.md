@@ -150,3 +150,6 @@ Keeps: `~/.hermes/skills/` and `~/.hermes/memories/` — your knowledge is yours
 - **No silent failures** — every error is captured to the log with diagnostics
 - **Skills conflicts** — warn in red with `--force-push`/`--force-pull` hint, don't block, local version wins
 - **Three-way memory merge** — `§`-entry diffing, LLM only when both sides disagree
+- **Coordinator SPOF** — workers degrade gracefully (warn + continue), but skills/memory drift until coordinator returns. Run a coordinator on an always-on machine.
+- **LLM conflicts** — sequential, 120s timeout per conflict. Worst case N × 120s. In practice, conflicts are rare (only when both sides edit the same entry differently).
+- **Git history** — every sync cycle creates a commit. Run `sync.sh --squash` periodically (e.g. monthly) to collapse history noise.

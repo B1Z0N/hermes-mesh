@@ -84,6 +84,18 @@ rm -f "$FETCH_ERR"
 UPSTREAM_HEAD=$(git -C "$WT" rev-parse FETCH_HEAD)
 LOCAL_HEAD=$(git -C "$WT" rev-parse HEAD)
 
+# ── version check ──────────────────────────────────────────────
+LOCAL_VER=$(cat "$WT/VERSION" 2>/dev/null || echo "0.0.0")
+UPSTREAM_VER=$(git -C "$WT" show FETCH_HEAD:VERSION 2>/dev/null || echo "0.0.0")
+if [ "$LOCAL_VER" != "$UPSTREAM_VER" ]; then
+    echo ""
+    echo -e "  ${YELLOW}Version change:${NC} $LOCAL_VER → $UPSTREAM_VER"
+    if [ -f "$WT/CHANGELOG.md" ] || git -C "$WT" show FETCH_HEAD:CHANGELOG.md >/dev/null 2>&1; then
+        echo "  Recent changes:"
+        git -C "$WT" show FETCH_HEAD:CHANGELOG.md 2>/dev/null | grep '^###\|^-' | head -15 | sed 's/^/    /'
+    fi
+fi
+
 if [ "$UPSTREAM_HEAD" = "$LOCAL_HEAD" ]; then
     ok "already up to date"
     exit 0

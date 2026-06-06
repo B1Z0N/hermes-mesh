@@ -1,0 +1,3 @@
+# Memory
+§
+local only
