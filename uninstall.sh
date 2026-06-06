@@ -14,8 +14,8 @@ echo "========================"
 echo ""
 
 # ── find config ───────────────────────────────────────────────
-# 1) Try current directory (worktree)
-# 2) Try ~/hermes-mesh
+# 1) Current directory (worktree)
+# 2) Default worktree path
 CONFIG_FILE=""
 for d in "." "$HOME/hermes-mesh"; do
     if [ -f "$d/config.toml" ]; then
@@ -24,15 +24,8 @@ for d in "." "$HOME/hermes-mesh"; do
     fi
 done
 
-HERMES_HOME="$HOME/.hermes"
-WORKTREE=""
-BARE_REPO=""
-ROLE=""
-
-if [ -n "$CONFIG_FILE" ]; then
-    echo "Found config: $CONFIG_FILE"
-    _load_toml() {
-        python3 -c "
+_load_toml() {
+    python3 -c "
 import os, sys
 try: import tomllib
 except ModuleNotFoundError:
@@ -45,22 +38,32 @@ if isinstance(v, bool):
 else:
     print(os.path.expanduser(str(v)))
 " 2>/dev/null || echo "$2"
-    }
+}
+
+HERMES_HOME="$HOME/.hermes"
+WORKTREE=""
+BARE_REPO=""
+ROLE=""
+
+if [ -n "$CONFIG_FILE" ]; then
+    echo "Found config: $CONFIG_FILE"
     HERMES_HOME=$(_load_toml "hermes_home" "$HOME/.hermes")
-    WORKTREE=$(_load_toml "worktree_path" "")
+    # Worktree is the directory containing config.toml
+    WORKTREE="$(cd "$(dirname "$CONFIG_FILE")" && pwd)"
     BARE_REPO=$(_load_toml "bare_repo" "")
     ROLE=$(_load_toml "role" "")
 else
     echo "No config.toml found — using runtime discovery."
 fi
 
-# ── resolve worktree ──────────────────────────────────────────
+# ── resolve worktree (runtime fallback) ────────────────────────
 if [ -z "$WORKTREE" ]; then
-    if [ -f "$HOME/hermes-mesh/sync.sh" ]; then
-WORKTREE="$HOME/hermes-mesh"
-    elif [ -f "$(dirname "$0")/sync.sh" ] && [ "$(dirname "$0")" != "." ]; then
-        WORKTREE="$(cd "$(dirname "$0")" && pwd)"
-    fi
+    for d in "$HOME/hermes-mesh" "."; do
+        if [ -f "$d/sync.sh" ]; then
+            WORKTREE="$(cd "$d" && pwd)"
+            break
+        fi
+    done
 fi
 
 if [ -z "$WORKTREE" ] || [ ! -d "$WORKTREE" ]; then
@@ -73,7 +76,6 @@ echo "Hermes home:  $HERMES_HOME"
 # ── resolve bare repo ─────────────────────────────────────────
 if [ -z "$BARE_REPO" ] && [ -f "$WORKTREE/.git/config" ]; then
     BARE_REPO=$(git -C "$WORKTREE" config --get remote.origin.url 2>/dev/null || echo "")
-    # If it's a local path (coordinator), keep it; if SSH (worker), skip
     case "$BARE_REPO" in
         /*) ;; # local path, keep
         *)  BARE_REPO="" ;; # remote URL, not ours to delete
@@ -94,8 +96,8 @@ else
 fi
 
 echo ""
-
-read -p "Remove everything? [y/N]: " CONFIRM
+echo -n "Remove everything? [y/N]: "
+read CONFIRM
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     echo "Aborted."
     exit 0

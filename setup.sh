@@ -3,24 +3,44 @@
 # curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/main/setup.sh | bash
 set -euo pipefail
 
-# When piped (curl | bash), stdin is the pipe — read fails silently.
-# Redirect each prompt to the real terminal so interactive input works.
-TTY=/dev/tty
-[ -t 0 ] && TTY=/dev/stdin  # not piped, use normal stdin
-
+# ── helpers ────────────────────────────────────────────────────
 RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BOLD='\033[1m'; NC='\033[0m'
 ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $*"; }
 fail() { echo -e "${RED}✗ $*${NC}"; exit 1; }
+
+# Safe tilde expansion — avoids eval echo injection risks
+expand_path() {
+    local p="$1"
+    p="${p/#~\//$HOME/}"
+    printf '%s' "$p"
+}
+
+# Interactive prompt with default, reading from real terminal
+prompt() {
+    local label="$1" default="$2" var="$3"
+    echo -n "$label [$default]: "
+    read -r input < "$TTY"
+    printf -v "$var" '%s' "${input:-$default}"
+}
+
+# Validate sync interval (positive integer, 1–1440)
+validate_interval() {
+    local val="$1"
+    [[ "$val" =~ ^[0-9]+$ ]] || fail "Interval must be a number, got: $val"
+    [ "$val" -ge 1 ] && [ "$val" -le 1440 ] || fail "Interval must be 1–1440 minutes, got: $val"
+}
+
+# ── tty detection ──────────────────────────────────────────────
+TTY=/dev/tty
+[ -t 0 ] && TTY=/dev/stdin  # not piped, use normal stdin
 
 echo ""
 echo -e "${BOLD}Hermes Mesh Setup${NC}"
 echo "===================="
 echo ""
 
-# Capture source directory now — before any 'cd' changes where $0 resolves.
-# When piped (curl | bash), $0 is 'bash' so dirname resolves to cwd — wrong.
-# Clone the repo to a temp dir so we have actual files to seed from.
+# ── source directory ───────────────────────────────────────────
 if [ ! -t 0 ]; then
     SCRIPT_DIR=$(mktemp -d)
     trap "rm -rf $SCRIPT_DIR" EXIT
@@ -57,111 +77,77 @@ echo ""
 
 # ── load or init config ───────────────────────────────────────
 WORKTREE_DEFAULT="$HOME/hermes-mesh"
-CONFIG_FILE=""
 if [ -f "$WORKTREE_DEFAULT/config.toml" ]; then
-    CONFIG_FILE="$WORKTREE_DEFAULT/config.toml"
-    echo -e "${YELLOW}Existing config found at $CONFIG_FILE${NC}"
+    echo -e "${YELLOW}Existing config found at $WORKTREE_DEFAULT/config.toml${NC}"
     echo "  This will be updated. Delete the worktree first for a clean install."
     echo ""
 fi
 
-# ── question 1: machine name ──────────────────────────────────
+# ── interactive questions ─────────────────────────────────────
 DEFAULT_NAME=$(hostname -s 2>/dev/null || echo "machine")
-echo -n "1. Machine name [$DEFAULT_NAME]: "
-read MACHINE_NAME < "$TTY"
-MACHINE_NAME="${MACHINE_NAME:-$DEFAULT_NAME}"
+prompt "1. Machine name" "$DEFAULT_NAME" MACHINE_NAME
 
-# ── question 2: role ──────────────────────────────────────────
 echo ""
 echo "2. Role:"
 echo "   1) Coordinator — hosts bare Git repo (always-on VPS)"
 echo "   2) Worker — syncs to coordinator (laptop/desktop)"
-echo -n "   Choose [1]: "
-read ROLE_CHOICE < "$TTY"
-ROLE_CHOICE="${ROLE_CHOICE:-1}"
-if [ "$ROLE_CHOICE" = "1" ]; then
-    ROLE="coordinator"
-else
-    ROLE="worker"
-fi
+prompt "   Choose" "1" ROLE_CHOICE
+if [ "$ROLE_CHOICE" = "1" ]; then ROLE="coordinator"; else ROLE="worker"; fi
 echo "   → $ROLE"
 
-# ── question 3: bare repo path (coordinator) ──────────────────
 BARE_REPO=""
 if [ "$ROLE" = "coordinator" ]; then
     BARE_DEFAULT="$HOME/git/hermes-mesh.git"
-    echo -n "3. Bare repo path [$BARE_DEFAULT]: "
-read BARE_REPO < "$TTY"
-    BARE_REPO="${BARE_REPO:-$BARE_DEFAULT}"
-    BARE_REPO=$(eval echo "$BARE_REPO")  # expand ~
+    prompt "3. Bare repo path" "$BARE_DEFAULT" BARE_REPO
+    BARE_REPO=$(expand_path "$BARE_REPO")
 else
     echo ""
 fi
 
-# ── question 4: worktree path ─────────────────────────────────
-echo -n "4. Worktree path [$WORKTREE_DEFAULT]: "
-read WORKTREE < "$TTY"
-WORKTREE="${WORKTREE:-$WORKTREE_DEFAULT}"
-WORKTREE=$(eval echo "$WORKTREE")
+prompt "4. Worktree path" "$WORKTREE_DEFAULT" WORKTREE
+WORKTREE=$(expand_path "$WORKTREE")
 
-# ── question 5: coordinator URL (worker only) ─────────────────
 COORDINATOR_URL=""
 if [ "$ROLE" = "worker" ]; then
     echo ""
     echo "5. Coordinator SSH URL"
     echo "   Format: user@host:/path/to/hermes-mesh.git"
-    echo -n "   URL: "
-read COORDINATOR_URL < "$TTY"
+    prompt "   URL" "" COORDINATOR_URL
     [ -z "$COORDINATOR_URL" ] && fail "Coordinator URL is required for workers."
 fi
 
-# ── question 6: hermes home ───────────────────────────────────
-HERMES_DEFAULT="$HOME/.hermes"
-echo -n "6. Hermes home [$HERMES_DEFAULT]: "
-read HERMES_HOME < "$TTY"
-HERMES_HOME="${HERMES_HOME:-$HERMES_DEFAULT}"
-HERMES_HOME=$(eval echo "$HERMES_HOME")
+prompt "6. Hermes home" "$HOME/.hermes" HERMES_HOME
+HERMES_HOME=$(expand_path "$HERMES_HOME")
 
-# ── question 7: sync interval ─────────────────────────────────
-echo -n "7. Sync interval (minutes) [15]: "
-read INTERVAL < "$TTY"
-INTERVAL="${INTERVAL:-15}"
+prompt "7. Sync interval (minutes)" "15" INTERVAL
+validate_interval "$INTERVAL"
 
-# ── question 8: auto-tagging ──────────────────────────────────
 echo ""
 echo "8. Auto-tag memory entries with machine name?"
 echo "   Adds a ⟨machine:${MACHINE_NAME}⟩ tag to future memory entries"
 echo "   so ${MACHINE_NAME}-specific facts stay on ${MACHINE_NAME}."
-echo -n "   Enable? [Y/n]: "
-read AUTO_TAG < "$TTY"
-AUTO_TAG="${AUTO_TAG:-y}"
+prompt "   Enable?" "y" AUTO_TAG
 
-# ── question 9: review ────────────────────────────────────────
+# ── review ─────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Review:${NC}"
 echo "  Machine:      $MACHINE_NAME"
 echo "  Role:         $ROLE"
-if [ "$ROLE" = "coordinator" ]; then
-    echo "  Bare repo:    $BARE_REPO"
-fi
+[ "$ROLE" = "coordinator" ] && echo "  Bare repo:    $BARE_REPO"
 echo "  Worktree:     $WORKTREE"
-if [ "$ROLE" = "worker" ]; then
-    echo "  Coordinator:  $COORDINATOR_URL"
-fi
+[ "$ROLE" = "worker" ] && echo "  Coordinator:  $COORDINATOR_URL"
 echo "  Hermes home:  $HERMES_HOME"
 echo "  Interval:     ${INTERVAL}m"
 echo "  Auto-tag:     $AUTO_TAG"
 echo ""
-echo -n "Proceed? [Y/n]: "
-read CONFIRM < "$TTY"
-CONFIRM="${CONFIRM:-y}"
+prompt "Proceed?" "y" CONFIRM
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     echo "Aborted."
     exit 0
 fi
 echo ""
 
-# ── coordinator: create bare repo ────────────────────────────
+# ── coordinator: create bare repo ──────────────────────────────
 if [ "$ROLE" = "coordinator" ]; then
     if [ ! -d "$BARE_REPO" ]; then
         echo -n "Creating bare repo at $BARE_REPO... "
@@ -181,34 +167,28 @@ if [ -d "$WORKTREE/.git" ]; then
 else
     echo -n "Cloning worktree... "
     mkdir -p "$(dirname "$WORKTREE")" 2>/dev/null || true
-    if [ "$ROLE" = "coordinator" ]; then
-        ERRFILE=$(mktemp)
-        if git clone "$BARE_REPO" "$WORKTREE" 2>"$ERRFILE"; then
-            ok "done"
-        else
-            echo ""
-            sed 's/^/    /' "$ERRFILE"
-            fail "Clone failed. Is the bare repo accessible?"
-        fi
-        rm -f "$ERRFILE"
+    ERRFILE=$(mktemp)
+    REPO_URL="$BARE_REPO"
+    [ "$ROLE" = "worker" ] && REPO_URL="$COORDINATOR_URL"
+    if git clone "$REPO_URL" "$WORKTREE" 2>"$ERRFILE"; then
+        ok "done"
     else
-        ERRFILE=$(mktemp)
-        if git clone "$COORDINATOR_URL" "$WORKTREE" 2>"$ERRFILE"; then
-            ok "done"
-        else
-            echo ""
-            echo "  Clone failed. Error:"
+        echo ""
+        if [ "$ROLE" = "worker" ]; then
             sed 's/^/    /' "$ERRFILE"
             echo ""
             echo "  Troubleshooting:"
-            echo "    1. ssh $COORDINATOR_URL  (test SSH — should connect)"
+            echo "    1. ssh $REPO_URL  (test SSH — should connect)"
             echo "    2. Is your SSH key in the coordinator's ~/.ssh/authorized_keys?"
             echo "    3. ssh-add -l (is your key loaded in the agent?)"
-            echo "    4. eval \$(ssh-agent -s) && ssh-add ~/.ssh/id_ed25519"
-            fail "SSH to coordinator failed."
+            echo '    4. eval $(ssh-agent -s) && ssh-add ~/.ssh/id_ed25519'
+        else
+            sed 's/^/    /' "$ERRFILE"
         fi
         rm -f "$ERRFILE"
+        fail "Clone failed."
     fi
+    rm -f "$ERRFILE"
 fi
 
 cd "$WORKTREE"
@@ -232,57 +212,62 @@ git config user.name "Hermes Mesh ($MACHINE_NAME)" 2>/dev/null || true
 git config user.email "hermes-mesh@local" 2>/dev/null || true
 
 # ── ensure directories ────────────────────────────────────────
-mkdir -p "$WORKTREE/memory"
-mkdir -p "$WORKTREE/skills"
-mkdir -p "$HERMES_HOME/memories"
-mkdir -p "$HERMES_HOME/skills"
+mkdir -p "$WORKTREE/memory" "$WORKTREE/skills"
+mkdir -p "$HERMES_HOME/memories" "$HERMES_HOME/skills"
 mkdir -p "$(dirname "$HERMES_HOME/logs/knowledge-sync.log")"
 
-# ── seed initial commit if bare repo is empty ─────────────────
+# ── seed initial bootstrap commit (coordinator only) ───────────
+seed_worktree() {
+    echo ""
+    echo -n "Seeding initial bootstrap commit... "
+
+    # Copy all scripts and config files from the source repo
+    local rsync_err=$(mktemp)
+    if rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
+          --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/" 2>"$rsync_err"; then
+        :
+    else
+        echo ""
+        warn "rsync failed"
+        sed 's/^/      /' "$rsync_err"
+        rm -f "$rsync_err"
+        fail "Could not copy files from $SCRIPT_DIR to $WORKTREE"
+    fi
+    rm -f "$rsync_err"
+
+    chmod +x "$WORKTREE"/*.sh 2>/dev/null || true
+    local copied
+    copied=$(ls "$WORKTREE"/*.sh "$WORKTREE"/*.md "$WORKTREE"/.gitignore \
+                 "$WORKTREE"/LICENSE "$WORKTREE"/config.example.toml 2>/dev/null | wc -l)
+
+    # Seed memory files if empty
+    [ -s "$WORKTREE/memory/agent-memory.md" ] || echo "# Agent Memory" > "$WORKTREE/memory/agent-memory.md"
+    [ -s "$WORKTREE/memory/user-profile.md" ]   || echo "# User Profile" > "$WORKTREE/memory/user-profile.md"
+    [ -s "$HERMES_HOME/memories/MEMORY.md" ]     || echo "# Durable Memory" > "$HERMES_HOME/memories/MEMORY.md"
+    [ -s "$HERMES_HOME/memories/USER.md" ]       || echo "# User Profile" > "$HERMES_HOME/memories/USER.md"
+
+    cd "$WORKTREE"
+    local commit_err=$(mktemp)
+    if git add . 2>"$commit_err" && git commit -m "initial mesh bootstrap" 2>"$commit_err"; then
+        local push_err=$(mktemp)
+        if git push -u origin main 2>"$push_err"; then
+            ok "done (seeded $copied files)"
+        else
+            warn "push failed"
+            sed 's/^/      /' "$push_err"
+        fi
+        rm -f "$push_err"
+    else
+        warn "commit failed"
+        sed 's/^/      /' "$commit_err"
+    fi
+    rm -f "$commit_err"
+}
+
 if [ "$ROLE" = "coordinator" ]; then
     WORKTREE_COMMITS=$(git rev-list --count HEAD 2>/dev/null || echo "0")
     if [ "$WORKTREE_COMMITS" -eq 0 ]; then
-        echo ""
-        echo -n "Seeding initial bootstrap commit... "
-
-        # Copy all scripts and config files from the source repo
-        if rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
-              --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/" 2>/tmp/hermes-setup-rsync.err; then
-            :
-        else
-            echo ""  # finish the "Seeding..." line
-            warn "rsync failed"
-            sed 's/^/      /' /tmp/hermes-setup-rsync.err
-            fail "Could not copy files from $SCRIPT_DIR to $WORKTREE"
-        fi
-        rm -f /tmp/hermes-setup-rsync.err
-        chmod +x "$WORKTREE"/*.sh 2>/dev/null || true
-        COPIED=$(ls "$WORKTREE"/*.sh "$WORKTREE"/*.md "$WORKTREE"/.gitignore "$WORKTREE"/LICENSE "$WORKTREE"/config.example.toml 2>/dev/null | wc -l)
-
-        # Seed memory files if empty
-        [ -s "$WORKTREE/memory/agent-memory.md" ] || echo "# Agent Memory" > "$WORKTREE/memory/agent-memory.md"
-        [ -s "$WORKTREE/memory/user-profile.md" ] || echo "# User Profile" > "$WORKTREE/memory/user-profile.md"
-
-        # Seed live memory if empty
-        [ -s "$HERMES_HOME/memories/MEMORY.md" ] || echo "# Durable Memory" > "$HERMES_HOME/memories/MEMORY.md"
-        [ -s "$HERMES_HOME/memories/USER.md" ] || echo "# User Profile" > "$HERMES_HOME/memories/USER.md"
-
-        cd "$WORKTREE"
-        COMMIT_ERR=$(mktemp)
-        if git add . 2>"$COMMIT_ERR" && git commit -m "initial mesh bootstrap" 2>"$COMMIT_ERR"; then
-            PUSH_ERR=$(mktemp)
-            if git push -u origin main 2>"$PUSH_ERR"; then
-                ok "done (seeded $COPIED files)"
-            else
-                warn "push failed"
-                sed 's/^/      /' "$PUSH_ERR"
-            fi
-            rm -f "$PUSH_ERR"
-        else
-            warn "commit failed"
-            sed 's/^/      /' "$COMMIT_ERR"
-        fi
-        rm -f "$COMMIT_ERR"
+        seed_worktree
     else
         ok "repo already has commits — pulling"
         git pull origin main 2>/dev/null || true
@@ -291,7 +276,6 @@ fi
 
 # ── install scheduler ─────────────────────────────────────────
 if [ "$(uname -s)" = "Darwin" ]; then
-    # macOS: launchd
     PLIST="$HOME/Library/LaunchAgents/com.hermes.mesh-sync.plist"
     cat > "$PLIST" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -319,9 +303,7 @@ EOF
     launchctl unload "$PLIST" 2>/dev/null || true
     launchctl load "$PLIST" 2>/dev/null || true
     ok "launchd installed (~/Library/LaunchAgents/com.hermes.mesh-sync.plist)"
-
 else
-    # Linux: cron
     CRON_JOB="*/$INTERVAL * * * * bash $WORKTREE/sync.sh"
     TMP_CRON=$(mktemp)
     crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON" || true
@@ -352,21 +334,21 @@ else
     SYNC_ERR=$(mktemp)
     if bash "$WORKTREE/sync.sh" >"$HERMES_HOME/logs/knowledge-sync.log" 2>"$SYNC_ERR"; then
         ok "first sync OK"
-else
+    else
         warn "first sync failed"
-    echo ""
-    if [ -s "$SYNC_ERR" ]; then
-        echo "  Error output:"
-        sed 's/^/    /' "$SYNC_ERR"
-        cat "$SYNC_ERR" >> "$HERMES_HOME/logs/knowledge-sync.log"
-    fi
-    if [ -f "$HERMES_HOME/logs/knowledge-sync.log" ]; then
         echo ""
-        echo "  Full log: $HERMES_HOME/logs/knowledge-sync.log"
+        if [ -s "$SYNC_ERR" ]; then
+            echo "  Error output:"
+            sed 's/^/    /' "$SYNC_ERR"
+            cat "$SYNC_ERR" >> "$HERMES_HOME/logs/knowledge-sync.log"
+        fi
+        if [ -f "$HERMES_HOME/logs/knowledge-sync.log" ]; then
+            echo ""
+            echo "  Full log: $HERMES_HOME/logs/knowledge-sync.log"
+        fi
     fi
+    rm -f "$SYNC_ERR"
 fi
-rm -f "$SYNC_ERR"
-fi  # end "sync.sh exists" check
 
 # ── display skill conflicts from first sync ──────────────────
 if grep -q 'SKILL CONFLICTS' "$HERMES_HOME/logs/knowledge-sync.log" 2>/dev/null; then
@@ -374,8 +356,9 @@ if grep -q 'SKILL CONFLICTS' "$HERMES_HOME/logs/knowledge-sync.log" 2>/dev/null;
     echo -e "${YELLOW}Skill conflicts detected in first sync:${NC}"
     grep -A 20 'SKILL CONFLICTS' "$HERMES_HOME/logs/knowledge-sync.log" | grep -v '^$' | sed 's/^/  /' || true
     echo ""
-    echo "  These files were changed on both sides. Local version kept."
-    echo "  Merge manually if needed, then sync will resume cleanly."
+    echo "  To resolve: merge manually, or:"
+    echo "    sync.sh --force-push  on the machine whose version should win"
+    echo "    sync.sh --force-pull  on the other machine"
 fi
 
 echo ""
