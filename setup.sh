@@ -217,11 +217,14 @@ if [ "$ROLE" = "coordinator" ]; then
         echo ""
         echo -n "Seeding initial bootstrap commit... "
 
-        # Ensure the scripts are in the worktree
+        # Copy all scripts and config files from the source repo
         SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-        for f in setup.sh uninstall.sh sync.sh memory-merge.py; do
+        COPIED=0
+        for f in .gitignore README.md config.example.toml LICENSE \
+                 sync.sh memory-merge.py setup.sh uninstall.sh update.sh; do
             if [ -f "$SCRIPT_DIR/$f" ] && [ ! -f "$WORKTREE/$f" ]; then
                 cp "$SCRIPT_DIR/$f" "$WORKTREE/$f"
+                COPIED=$((COPIED + 1))
             fi
         done
         chmod +x "$WORKTREE"/*.sh 2>/dev/null || true
@@ -235,12 +238,21 @@ if [ "$ROLE" = "coordinator" ]; then
         [ -s "$HERMES_HOME/memories/USER.md" ] || echo "# User Profile" > "$HERMES_HOME/memories/USER.md"
 
         cd "$WORKTREE"
-        git add .
-        git commit -m "initial mesh bootstrap" >/dev/null 2>&1
-        git push -u origin main >/dev/null 2>&1
-        ok "done"
-        echo ""
-        echo "  Bootstrapped: config, scripts, memory seed files."
+        COMMIT_ERR=$(mktemp)
+        if git add . 2>"$COMMIT_ERR" && git commit -m "initial mesh bootstrap" 2>"$COMMIT_ERR"; then
+            PUSH_ERR=$(mktemp)
+            if git push -u origin main 2>"$PUSH_ERR"; then
+                ok "done (seeded $COPIED files)"
+            else
+                warn "push failed"
+                sed 's/^/      /' "$PUSH_ERR"
+            fi
+            rm -f "$PUSH_ERR"
+        else
+            warn "commit failed"
+            sed 's/^/      /' "$COMMIT_ERR"
+        fi
+        rm -f "$COMMIT_ERR"
     else
         ok "repo already has commits — pulling"
         git pull origin main 2>/dev/null || true
@@ -301,12 +313,17 @@ fi
 
 # ── first sync ────────────────────────────────────────────────
 echo ""
-echo -n "Running first sync... "
-SYNC_ERR=$(mktemp)
-if bash "$WORKTREE/sync.sh" >"$HERMES_HOME/logs/knowledge-sync.log" 2>"$SYNC_ERR"; then
-    ok "first sync OK"
+if [ ! -f "$WORKTREE/sync.sh" ]; then
+    warn "sync.sh not found in worktree — bootstrap may have failed"
+    echo "  Copy it manually: cp /home/hermes/hermes-mesh/sync.sh $WORKTREE/"
+    echo "  Then run: cd $WORKTREE && bash sync.sh"
 else
-    warn "first sync failed"
+    echo -n "Running first sync... "
+    SYNC_ERR=$(mktemp)
+    if bash "$WORKTREE/sync.sh" >"$HERMES_HOME/logs/knowledge-sync.log" 2>"$SYNC_ERR"; then
+        ok "first sync OK"
+else
+        warn "first sync failed"
     echo ""
     if [ -s "$SYNC_ERR" ]; then
         echo "  Error output:"
@@ -319,6 +336,7 @@ else
     fi
 fi
 rm -f "$SYNC_ERR"
+fi  # end "sync.sh exists" check
 
 # ── display skill conflicts from first sync ──────────────────
 if grep -q 'SKILL CONFLICTS' "$HERMES_HOME/logs/knowledge-sync.log" 2>/dev/null; then
