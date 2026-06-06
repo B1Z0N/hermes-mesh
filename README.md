@@ -2,6 +2,9 @@
 
 > *Your Hermes agents, one shared brain.*
 
+[![CI](https://github.com/B1Z0N/hermes-mesh/actions/workflows/ci.yml/badge.svg)](https://github.com/B1Z0N/hermes-mesh/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue)](https://github.com/B1Z0N/hermes-mesh/releases/tag/v1.0.1)
+
 You have Hermes running on your VPS. On your MacBook. Maybe on a work PC or a scraper box. They're all smart — but they each have *different* memories. The VPS knows your server specs. The Mac knows your local paths. And neither remembers what you told the other.
 
 **Hermes Mesh fixes that.** It quietly keeps your agents' skills and durable memory in sync across every machine you run. So Hermes remembers the same things about you, your projects, and your preferences — no matter which machine you're talking to.
@@ -77,10 +80,12 @@ This preference applies everywhere — no tag needed
 |---|---|
 | `bash setup.sh` | Interactive setup — 9 friendly questions, zero flags |
 | `bash sync.sh` | Manual sync cycle (cron runs this automatically) |
-| `bash sync.sh --force-push` | Overwrite bare repo with local (step 1 of 2) |
-| `bash sync.sh --force-pull` | Overwrite local with bare repo (step 2 of 2) |
-| `bash update.sh` | Pull latest scripts from upstream |
-| `bash uninstall.sh` | Remove everything cleanly |
+| `bash sync.sh --force-push` | Overwrite bare repo with local (step 1 of 2 for conflict resolution) |
+| `bash sync.sh --force-pull` | Overwrite local with bare repo (step 2 of 2 for conflict resolution) |
+| `bash sync.sh --squash` | Collapse >50 commits into one (run monthly to keep history clean) |
+| `bash update.sh` | Pull latest scripts from upstream — shows version diff + recent CHANGELOG entries before asking |
+| `bash test.sh` | Run the test suite (47 tests: setup, merge, sync, uninstall, edge cases) |
+| `bash uninstall.sh` | Remove everything cleanly — keeps your `skills/` and `memories/` |
 
 ---
 
@@ -143,6 +148,30 @@ Removes: worktree, bare repo (if coordinator), scheduler, logs, backups.
 Keeps: `~/.hermes/skills/` and `~/.hermes/memories/` — your knowledge is yours.
 
 ---
+
+## 🔒 Security note
+
+The one-liner `curl | bash` fetches over HTTPS (TLS). There is no GPG signature or pinned commit hash — the script trusts GitHub's transport security. For a personal tool this is acceptable. If you share this with others or want defense-in-depth:
+
+```bash
+# Pin a specific release tag:
+curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/v1.0.1/setup.sh | bash
+
+# Or clone + verify, then run locally:
+git clone --branch v1.0.1 https://github.com/B1Z0N/hermes-mesh.git
+cd hermes-mesh && bash setup.sh
+```
+
+## 🧪 Development
+
+```bash
+bash test.sh           # 47 tests: setup, merge, sync, uninstall, edge cases
+bash test.sh merge     # run only merge tests (incl. fixture-based LLM fallback tests)
+```
+
+CI runs on every push and PR via GitHub Actions: shellcheck + full test suite. See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+Versioning follows [Keep a Changelog](https://keepachangelog.com/). Release tags (`v1.0.1`, etc.) are created on the main branch. See [`CHANGELOG.md`](CHANGELOG.md) for what changed between versions.
 
 ## 📐 Architecture decisions
 
