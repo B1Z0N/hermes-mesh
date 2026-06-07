@@ -381,7 +381,11 @@ if [ "${1:-}" = "--squash" ]; then
         log "squashing $TOTAL commits into one (keeping bootstrap $BOOTSTRAP)"
         git reset --soft "$BOOTSTRAP"
         git commit -m "sync history squashed ($TOTAL cycles)"
-        git push --force origin "$BRANCH" && log "squashed and force-pushed" || warn "squash-push-failed"
+        if git push --force origin "$BRANCH"; then
+            log "squashed and force-pushed"
+        else
+            warn "squash-push-failed"
+        fi
     else
         log "only $TOTAL commits — nothing to squash (needs >50)"
     fi

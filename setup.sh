@@ -36,7 +36,9 @@ prompt() {
 validate_interval() {
     local val="$1"
     [[ "$val" =~ ^[0-9]+$ ]] || fail "Interval must be a number, got: $val"
-    [ "$val" -ge 1 ] && [ "$val" -le 1440 ] || fail "Interval must be 1–1440 minutes, got: $val"
+    if [ "$val" -lt 1 ] || [ "$val" -gt 1440 ]; then
+        fail "Interval must be 1–1440 minutes, got: $val"
+    fi
 }
 
 # ── tty detection ──────────────────────────────────────────────
@@ -56,7 +58,7 @@ echo ""
 # ── source directory ───────────────────────────────────────────
 if [ ! -t 0 ]; then
     SCRIPT_DIR=$(mktemp -d)
-    trap "rm -rf $SCRIPT_DIR" EXIT
+    trap 'rm -rf "'"$SCRIPT_DIR"'"' EXIT
     git clone --depth 1 https://github.com/B1Z0N/hermes-mesh.git "$SCRIPT_DIR" 2>/dev/null || {
         echo "Failed to clone hermes-mesh repo for seeding." >&2
         exit 1
@@ -194,6 +196,7 @@ else
             echo "    1. ssh $REPO_URL  (test SSH — should connect)"
             echo "    2. Is your SSH key in the coordinator's ~/.ssh/authorized_keys?"
             echo "    3. ssh-add -l (is your key loaded in the agent?)"
+            # shellcheck disable=SC2016
             echo '    4. eval $(ssh-agent -s) && ssh-add ~/.ssh/id_ed25519'
         else
             sed 's/^/    /' "$ERRFILE"
@@ -235,7 +238,8 @@ seed_worktree() {
     echo -n "Seeding initial bootstrap commit... "
 
     # Copy all scripts and config files from the source repo
-    local rsync_err=$(mktemp)
+    local rsync_err
+    rsync_err=$(mktemp)
     if rsync -a --exclude='.git' --exclude='skills' --exclude='memory' \
           --exclude='config.toml' "$SCRIPT_DIR/" "$WORKTREE/" 2>"$rsync_err"; then
         :
@@ -250,6 +254,7 @@ seed_worktree() {
 
     chmod +x "$WORKTREE"/*.sh 2>/dev/null || true
     local copied
+    # shellcheck disable=SC2012
     copied=$(ls "$WORKTREE"/*.sh "$WORKTREE"/*.md "$WORKTREE"/.gitignore \
                  "$WORKTREE"/LICENSE "$WORKTREE"/config.example.toml 2>/dev/null | wc -l)
 
@@ -260,9 +265,11 @@ seed_worktree() {
     [ -s "$HERMES_HOME/memories/USER.md" ]       || echo "# User Profile" > "$HERMES_HOME/memories/USER.md"
 
     cd "$WORKTREE"
-    local commit_err=$(mktemp)
+    local commit_err
+    commit_err=$(mktemp)
     if git add . 2>"$commit_err" && git commit -m "initial mesh bootstrap" 2>"$commit_err"; then
-        local push_err=$(mktemp)
+        local push_err
+        push_err=$(mktemp)
         if git push -u origin main 2>"$push_err"; then
             ok "done (seeded $copied files)"
         else
@@ -303,7 +310,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
         <string>$WORKTREE/sync.sh</string>
     </array>
     <key>StartInterval</key>
-    <integer>$(($INTERVAL * 60))</integer>
+    <integer>$((INTERVAL * 60))</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>

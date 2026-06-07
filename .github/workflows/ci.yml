@@ -16,7 +16,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
       - name: ShellCheck (shell)
-        run: shellcheck sync.sh setup.sh uninstall.sh update.sh test.sh || true
+        run: shellcheck sync.sh setup.sh uninstall.sh update.sh test.sh
 
       - name: Python syntax check
         run: python3 -m py_compile memory-merge.py
@@ -24,9 +24,9 @@ jobs:
       - name: Python import smoke test
         run: python3 memory-merge.py --help
 
-      - name: Ruff lint (Python, best-effort)
+      - name: Ruff lint (Python)
         run: |
-          pip install -q ruff 2>/dev/null && ruff check memory-merge.py || true
+          pip install -q ruff 2>/dev/null && ruff check memory-merge.py
 
       - name: Run test suite
         run: bash test.sh

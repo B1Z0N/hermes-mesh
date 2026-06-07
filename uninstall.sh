@@ -4,7 +4,7 @@
 # Leaves ~/.hermes/skills/ and ~/.hermes/memories/ untouched.
 set -euo pipefail
 
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BOLD='\033[1m'; NC='\033[0m'
+GREEN='\033[32m'; YELLOW='\033[33m'; BOLD='\033[1m'; NC='\033[0m'
 ok()   { echo -e "  ${GREEN}✓${NC} $*"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $*"; }
 

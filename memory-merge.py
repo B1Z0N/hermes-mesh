@@ -18,7 +18,9 @@ NOT preceded by backslash, so entries can safely contain \\§ without
 breaking the format.
 """
 from __future__ import annotations
-import re, subprocess, sys
+import re
+import subprocess
+import sys
 from pathlib import Path
 
 MACHINE_TAG_RE = re.compile(r'^⟨machine:([a-zA-Z0-9_-]+)⟩\s*')
