@@ -151,18 +151,15 @@ Keeps: `~/.hermes/skills/` and `~/.hermes/memories/` — your knowledge is yours
 
 ## 🔒 Security note
 
-The one-liner `curl | bash` fetches over HTTPS (TLS). There is no GPG signature or pinned commit hash — the script trusts GitHub's transport security. For a personal tool this is acceptable. If you share this with others or want defense-in-depth:
+The one-liner `curl | bash` fetches over HTTPS (TLS). For defense-in-depth, pin to a specific commit SHA — the URL from GitHub's file browser (press `y` to get the permalink) is self-verifying and never rots:
 
 ```bash
-# Pin a specific release tag:
-curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/v1.0.1/setup.sh | bash
+# Pin to a specific commit (copy the ?at= URL from GitHub — press 'y' in the file view):
+curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/a5a3b19/setup.sh | bash
 
-# Or clone + verify, then run locally:
+# Or clone a release tag:
 git clone --branch v1.0.1 https://github.com/B1Z0N/hermes-mesh.git
 cd hermes-mesh && bash setup.sh
-
-# Verify SHA256 checksum:
-sha256sum -c <<< "e62a0beb6577df18fae8afbf4e39a4b11f934ecc0d27b87a8a27e7836b88f52a  setup.sh" && bash setup.sh
 ```
 
 ## 🧪 Development

@@ -238,11 +238,11 @@ if [ -n "$REMOTE_HASH" ] && [ "$REMOTE_HASH" != "$LOCAL_HASH" ]; then
             # Reset to known state first, then clean up rebase state
             git reset --hard "origin/$BRANCH"
             git clean -fd
-            # Belt-and-suspenders: if rebase --abort fails, manually nuke rebase state
-            if ! git rebase --abort 2>/dev/null; then
-                rm -rf "$(git rev-parse --git-dir)/rebase-merge" 2>/dev/null || true
-                git reset --hard ORIG_HEAD 2>/dev/null || true
-            fi
+            # Belt-and-suspenders: if rebase --abort fails, manually nuke rebase state.
+            # Working tree is already clean from reset+clean above — just remove
+            # .git/rebase-merge so git doesn't think it's mid-rebase.
+            git rebase --abort 2>/dev/null || \
+                rm -rf "$(git rev-parse --git-dir)/rebase-merge" 2>/dev/null
             warn "rebase-aborted"
         fi
         rm -f "$REBASE_ERR"
