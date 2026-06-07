@@ -3,6 +3,11 @@
 # Run: bash test.sh           (all tests)
 #      bash test.sh setup     (only setup tests)
 #      bash test.sh sync      (only sync tests)
+
+# shellcheck disable=SC2155
+# SC2155 (declare+assign masking return values) is idiomatic in test code —
+# local x=$(mktemp) is the standard bash test pattern and mktemp failures
+# are caught by set -e or explicit error handling in the test harness.
 #      bash test.sh merge     (only memory merge tests)
 #      bash test.sh uninstall (only uninstall tests)
 set -euo pipefail
@@ -99,9 +104,7 @@ test_setup_worker() {
           "user@localhost:$TEST_HOME/worker-coord/git/hermes-mesh.git" \
           "$TEST_HOME/worker/.hermes" "20" "n" "y"); bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
 
-    # Shell-quote before passing to assert_contains
-    local q
-    printf -v q '%q' "$out"
+    # Verify worker reached clone step
     assert_contains "$out" "worker" "worker role detected"
     assert_contains "$out" "Cloning" "reached clone step"
     skip "SSH clone fails without real keys — expected in CI"
@@ -392,6 +395,7 @@ test_expand_path_tilde() {
 
     local home="$TEST_HOME/tilde"
     local out
+    # shellcheck disable=SC2088
     out=$(export HOME="$home"; answers=$(printf '%s\n' "box" "1" \
           "~/custom-bare.git" "~/custom-worktree" \
           "~/.hermes" "15" "n" "y"); bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true

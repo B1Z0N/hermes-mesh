@@ -97,7 +97,7 @@ fi
 
 echo ""
 echo -n "Remove everything? [y/N]: "
-read CONFIRM
+read -r CONFIRM
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     echo "Aborted."
     exit 0

@@ -111,7 +111,7 @@ echo "What should be updated?"
 echo "  1) Everything — full rebase onto upstream (recommended)"
 echo "  2) Scripts only — checkout upstream sync.sh memory-merge.py setup.sh uninstall.sh update.sh (preserves config/memory/skills)"
 echo "  3) Nothing — save upstream URL for later, exit now"
-read -p "  Choose [1]: " UPDATE_MODE
+read -r -p "  Choose [1]: " UPDATE_MODE
 UPDATE_MODE="${UPDATE_MODE:-1}"
 
 if [ "$UPDATE_MODE" = "3" ]; then
@@ -156,6 +156,7 @@ else
     rm -f "$REBASE_ERR"
 
     if $STASHED && git -C "$WT" rebase --abort 2>/dev/null; then :; fi
+    # shellcheck disable=SC2015
     $STASHED && git -C "$WT" stash pop 2>/dev/null || true
 fi
 
@@ -169,7 +170,7 @@ if [ "$ROLE" = "coordinator" ]; then
         ok "pushed"
     else
         warn "push failed"
-        cat "$PUSH_ERR" | sed 's/^/    /'
+        sed 's/^/    /' "$PUSH_ERR"
     fi
     rm -f "$PUSH_ERR"
 fi
