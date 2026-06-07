@@ -229,6 +229,30 @@ test_merge_same_entry_both_edited() {
     rm -f "$base" "$ours" "$theirs" "$out"
 }
 
+# ── verify parse_entries handles plain single entry (no §) ──────
+test_merge_single_entry_no_delimiter() {
+    echo -e "\n${BOLD}── merge: single entry without § delimiter${NC}"
+
+    local base=$(mktemp); local ours=$(mktemp); local theirs=$(mktemp); local out=$(mktemp)
+    printf '# Memory\n§\nkey: original\n' > "$base"
+    printf '# Memory\n§\nkey: edited locally\n' > "$ours"
+    printf '# Memory\n§\nkey: edited remotely\n' > "$theirs"
+
+    # If LLM is unavailable (CI), merge falls back to local. Either way,
+    # the output should be a valid memory file — no crash, no empty file.
+    if python3 "$SCRIPT_DIR/memory-merge.py" --machine "a" --base "$base" --ours "$ours" --theirs "$theirs" --out "$out" 2>/dev/null; then
+        result=$(cat "$out")
+        if [ -n "$result" ]; then
+            pass "single-entry merge produced valid output"
+        else
+            fail "single-entry merge produced empty output"
+        fi
+    else
+        fail "single-entry merge crashed"
+    fi
+    rm -f "$base" "$ours" "$theirs" "$out"
+}
+
 # ── fixture-based merge tests ──────────────────────────────────
 test_merge_fixtures() {
     echo -e "\n${BOLD}── merge: fixture tests${NC}"
@@ -449,6 +473,7 @@ run_section merge test_merge_local_deletion
 run_section merge test_merge_other_machine_not_deleted
 run_section merge test_merge_both_edited_different
 run_section merge test_merge_same_entry_both_edited
+run_section merge test_merge_single_entry_no_delimiter
 run_section merge test_merge_fixtures
 
 run_section sync test_sync_normal

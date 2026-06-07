@@ -238,7 +238,11 @@ if [ -n "$REMOTE_HASH" ] && [ "$REMOTE_HASH" != "$LOCAL_HASH" ]; then
             # Reset to known state first, then clean up rebase state
             git reset --hard "origin/$BRANCH"
             git clean -fd
-            git rebase --abort 2>/dev/null || true
+            # Belt-and-suspenders: if rebase --abort fails, manually nuke rebase state
+            if ! git rebase --abort 2>/dev/null; then
+                rm -rf "$(git rev-parse --git-dir)/rebase-merge" 2>/dev/null || true
+                git reset --hard ORIG_HEAD 2>/dev/null || true
+            fi
             warn "rebase-aborted"
         fi
         rm -f "$REBASE_ERR"
@@ -328,6 +332,10 @@ if [ -d "$SKILLS_SRC" ] && [ -d "$SKILLS_DST" ]; then
         fi
         log "  (skipping export/import — dry-run)"
         rm -f "$EXCLUDE_FILE" "$REMOTE_DELETED" "$REMOTE_CHANGED" "$LOCAL_CHANGED"
+        if [ -n "$CONFLICTS" ]; then
+            log "HEALTH: CONFLICTS (dry-run)"
+            exit 1
+        fi
         log "HEALTH: OK (dry-run)"
         exit 0
     fi

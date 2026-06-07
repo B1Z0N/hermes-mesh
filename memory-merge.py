@@ -95,13 +95,22 @@ def run_llm(prompt: str, timeout: int = 120) -> str | None:
             capture_output=True, text=True, timeout=timeout)
         if r.returncode == 0 and r.stdout.strip():
             result = r.stdout.strip()
-            # Sanity checks on LLM output
-            if result.startswith('Error:') or result.startswith('⚠'):
-                print("  ⚠ LLM returned error-like output — falling back to local",
-                      file=sys.stderr)
+            # Content-based validation — reject CLI errors, accept memory entries
+            # Memory entries are substantive text; errors are short and structured
+            if not result:
                 return None
             if len(result) > 20000:
                 print("  ⚠ LLM output too long — falling back to local",
+                      file=sys.stderr)
+                return None
+            # Reject CLI error patterns (short output with error keywords)
+            error_markers = ['Traceback (most recent call last)',
+                           'hermes: error', 'Usage:', 'Error: ',
+                           'hermes chat: error']
+            if any(result.startswith(m) for m in error_markers) or \
+               (len(result) < 30 and any(m in result.lower() for m in
+                   ('error:', 'traceback', 'usage:', 'timeout'))):
+                print("  ⚠ LLM returned error-like output — falling back to local",
                       file=sys.stderr)
                 return None
             return result
