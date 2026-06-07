@@ -8,3 +8,4 @@ config.toml
 *.swp
 *.swo
 *~
+__pycache__/

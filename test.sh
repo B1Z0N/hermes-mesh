@@ -100,9 +100,11 @@ test_setup_worker() {
     # Worker setup will fail at clone (no real SSH) — that's expected.
     # We just verify it reaches the clone step with correct config.
     local out
-    out=$(export HOME="$TEST_HOME/worker"; answers=$(printf '%s\n' "laptop" "2" "$TEST_HOME/worker/hermes-mesh" \
+    local answers
+    answers=$(printf '%s\n' "laptop" "2" "$TEST_HOME/worker/hermes-mesh" \
           "user@localhost:$TEST_HOME/worker-coord/git/hermes-mesh.git" \
-          "$TEST_HOME/worker/.hermes" "20" "n" "y"); bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
+          "$TEST_HOME/worker/.hermes" "20" "n" "y")
+    out=$(HOME="$TEST_HOME/worker" bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
 
     # Verify worker reached clone step
     assert_contains "$out" "worker" "worker role detected"
@@ -127,9 +129,11 @@ test_setup_rejects_zero_interval() {
     setup_test_env "zero"
 
     local out
-    out=$(export HOME="$TEST_HOME/zero"; answers=$(printf '%s\n' "box" "1" \
+    local answers
+    answers=$(printf '%s\n' "box" "1" \
           "$TEST_HOME/zero/git/hermes-mesh.git" "$TEST_HOME/zero/hermes-mesh" \
-          "$TEST_HOME/zero/.hermes" "0" "y" "y"); bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
+          "$TEST_HOME/zero/.hermes" "0" "y" "y")
+    out=$(HOME="$TEST_HOME/zero" bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
 
     assert_contains "$out" "1–1440" "zero interval rejected"
 }
@@ -383,7 +387,9 @@ test_machine_name_default() {
     setup_test_env "mach"
 
     local out
-    out=$(export HOME="$TEST_HOME/mach"; answers=$(printf '\n1\n\n\n\n15\ny\ny\n'); bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
+    local answers
+    answers=$(printf '\n1\n\n\n\n15\ny\ny\n')
+    out=$(HOME="$TEST_HOME/mach" bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
     local expected=$(hostname -s 2>/dev/null || echo "machine")
 
     assert_contains "$(cat "$TEST_HOME/mach/hermes-mesh/config.toml" 2>/dev/null || echo '')" "$expected" "machine name defaults to hostname"
@@ -395,10 +401,12 @@ test_expand_path_tilde() {
 
     local home="$TEST_HOME/tilde"
     local out
+    local answers
     # shellcheck disable=SC2088
-    out=$(export HOME="$home"; answers=$(printf '%s\n' "box" "1" \
+    answers=$(printf '%s\n' "box" "1" \
           "~/custom-bare.git" "~/custom-worktree" \
-          "~/.hermes" "15" "n" "y"); bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
+          "~/.hermes" "15" "n" "y")
+    out=$(HOME="$home" bash "$DEV_REPO/setup.sh" <<< "$answers" 2>&1) || true
 
     assert_dir "$home/custom-bare.git"   "tilde bare repo expanded"
     assert_dir "$home/custom-worktree"   "tilde worktree expanded"

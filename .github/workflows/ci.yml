@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
@@ -16,7 +18,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
 
       - name: ShellCheck (shell)
-        run: shellcheck --severity=warning sync.sh setup.sh uninstall.sh update.sh test.sh
+        run: shellcheck sync.sh setup.sh uninstall.sh update.sh test.sh
 
       - name: Python syntax check
         run: python3 -m py_compile memory-merge.py
