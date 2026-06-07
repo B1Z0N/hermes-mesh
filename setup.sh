@@ -101,6 +101,10 @@ fi
 # ── interactive questions ─────────────────────────────────────
 DEFAULT_NAME=$(hostname -s 2>/dev/null || echo "machine")
 prompt "1. Machine name" "$DEFAULT_NAME" MACHINE_NAME
+# Validate machine name: TOML-safe (alphanumeric, hyphens, underscores only)
+if ! [[ "$MACHINE_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    fail "Machine name must contain only letters, numbers, hyphens, and underscores (got: '$MACHINE_NAME')"
+fi
 
 echo ""
 echo "2. Role:"
@@ -121,6 +125,8 @@ fi
 
 prompt "4. Worktree path" "$WORKTREE_DEFAULT" WORKTREE
 WORKTREE=$(expand_path "$WORKTREE")
+# Warn if path contains spaces — will break cron/launchd
+case "$WORKTREE" in *\ *) warn "Worktree path contains spaces — this may break the scheduler" ;; esac
 
 COORDINATOR_URL=""
 if [ "$ROLE" = "worker" ]; then
@@ -324,7 +330,7 @@ EOF
     launchctl load "$PLIST" 2>/dev/null || true
     ok "launchd installed (~/Library/LaunchAgents/com.hermes.mesh-sync.plist)"
 else
-    CRON_JOB="*/$INTERVAL * * * * bash $WORKTREE/sync.sh"
+    CRON_JOB="*/$INTERVAL * * * * bash \"$WORKTREE/sync.sh\""
     TMP_CRON=$(mktemp)
     crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON" || true
     echo "$CRON_JOB" >> "$TMP_CRON"
@@ -385,9 +391,9 @@ echo ""
 echo -e "${GREEN}${BOLD}Setup complete!${NC}"
 echo ""
 echo "  Sync runs every ${INTERVAL}m automatically."
-echo "  Manual sync: cd $WORKTREE && bash sync.sh"
+echo "  Manual sync: cd \"$WORKTREE\" && bash sync.sh"
 echo "  Logs:        $HERMES_HOME/logs/knowledge-sync.log"
-echo "  Uninstall:   cd $WORKTREE && bash uninstall.sh"
+echo "  Uninstall:   cd \"$WORKTREE\" && bash uninstall.sh"
 if [ "$ROLE" = "coordinator" ]; then
     COORD_URL="${USER}@$(hostname -I | awk '{print $1}'):$BARE_REPO"
     echo ""
