@@ -4,15 +4,18 @@ set -euo pipefail
 
 FORCE_PULL=false
 FORCE_PUSH=false
+DRY_RUN=false
 
 usage() {
-    echo "Usage: sync.sh [--force-pull | --force-push]"
+    echo "Usage: sync.sh [--force-pull | --force-push | --dry-run]"
     echo ""
     echo "  (no flag)    Normal sync: pull, 3-way merge, export, push"
     echo "  --force-pull  Discard ALL local changes — overwrite live memory + skills"
     echo "                from bare repo. Use when local is broken."
     echo "  --force-push  Discard ALL remote changes — overwrite bare repo with local"
     echo "                memory + skills. Use when remote is stale/corrupt."
+    echo "  --dry-run     Report what would change (skills conflicts, memory diffs)"
+    echo "                without modifying anything. Safe for inspection."
     exit 1
 }
 
@@ -20,6 +23,7 @@ for arg in "$@"; do
     case "$arg" in
         --force-pull) FORCE_PULL=true ;;
         --force-push) FORCE_PUSH=true ;;
+        --dry-run)    DRY_RUN=true ;;
         -h|--help)    usage ;;
         *)            echo "Unknown flag: $arg"; usage ;;
     esac
@@ -43,19 +47,26 @@ HEALTH_OK=true
 HEALTH_NOTES=""
 
 _load_toml() {
+    # Pass config path and key as args to avoid shell injection into Python
+    local _config="$CONFIG"
+    local _key="$1"
+    local _default="$2"
     python3 -c "
 import os, sys
+key = sys.argv[1]
+default = sys.argv[2]
+config_path = sys.argv[3]
 try: import tomllib
 except ModuleNotFoundError:
     try: import tomli as tomllib
     except ModuleNotFoundError: sys.exit(1)
-with open('$CONFIG','rb') as f: d = tomllib.load(f)
-v = d.get('$1','$2')
+with open(config_path,'rb') as f: d = tomllib.load(f)
+v = d.get(key, default)
 if isinstance(v, bool):
     print('true' if v else 'false')
 else:
     print(os.path.expanduser(str(v)))
-" 2>/dev/null || echo "$2"
+" "$_key" "$_default" "$_config" 2>/dev/null || echo "$_default"
 }
 
 HERMES_HOME=$(_load_toml "hermes_home" "$HOME/.hermes")
@@ -224,8 +235,10 @@ if [ -n "$REMOTE_HASH" ] && [ "$REMOTE_HASH" != "$LOCAL_HASH" ]; then
             log "rebase failed — aborting and resetting to remote"
             log "  ⤷ $(head -2 "$REBASE_ERR" | tr '\n' ' ')"
             cat "$REBASE_ERR" >> "$LOG"
-            git rebase --abort 2>/dev/null || true
+            # Reset to known state first, then clean up rebase state
             git reset --hard "origin/$BRANCH"
+            git clean -fd
+            git rebase --abort 2>/dev/null || true
             warn "rebase-aborted"
         fi
         rm -f "$REBASE_ERR"
@@ -300,6 +313,23 @@ if [ -d "$SKILLS_SRC" ] && [ -d "$SKILLS_DST" ]; then
         echo -e "\033[33m   2. sync.sh --force-pull  on the other machine\033[0m" >&2
         echo "" >&2
         echo "" >&2
+    fi
+
+    if $DRY_RUN; then
+        log "=== DRY-RUN [$MACHINE] — no changes applied ==="
+        log "  $([ -n "$CONFLICTS" ] && echo "CONFLICTS DETECTED" || echo "no conflicts")"
+        if [ -s "$REMOTE_CHANGED" ]; then
+            log "  remote changed files:"
+            while IFS= read -r f; do [ -n "$f" ] && log "    $f"; done < "$REMOTE_CHANGED"
+        fi
+        if [ -s "$REMOTE_DELETED" ]; then
+            log "  remote deleted files:"
+            while IFS= read -r f; do [ -n "$f" ] && log "    $f"; done < "$REMOTE_DELETED"
+        fi
+        log "  (skipping export/import — dry-run)"
+        rm -f "$EXCLUDE_FILE" "$REMOTE_DELETED" "$REMOTE_CHANGED" "$LOCAL_CHANGED"
+        log "HEALTH: OK (dry-run)"
+        exit 0
     fi
 
     # Backup

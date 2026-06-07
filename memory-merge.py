@@ -94,7 +94,17 @@ def run_llm(prompt: str, timeout: int = 120) -> str | None:
             ['hermes', 'chat', '-q', prompt, '--quiet'],
             capture_output=True, text=True, timeout=timeout)
         if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip()
+            result = r.stdout.strip()
+            # Sanity checks on LLM output
+            if result.startswith('Error:') or result.startswith('⚠'):
+                print("  ⚠ LLM returned error-like output — falling back to local",
+                      file=sys.stderr)
+                return None
+            if len(result) > 20000:
+                print("  ⚠ LLM output too long — falling back to local",
+                      file=sys.stderr)
+                return None
+            return result
     except FileNotFoundError:
         print("  ⚠ hermes CLI not found — falling back to local version", file=sys.stderr)
     except subprocess.TimeoutExpired:
@@ -111,8 +121,14 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
     # Index by (tag, norm_body) so entries with same body but different tags
     # are distinct and don't collide.
     def index(entries):
-        return {(tag, norm(body)): (tag, body, full)
-                for tag, body, full in entries}
+        idx = {}
+        for tag, body, full in entries:
+            key = (tag, norm(body))
+            if key in idx:
+                print(f"  ⚠ duplicate entry key {key} — overwriting earlier entry",
+                      file=sys.stderr)
+            idx[key] = (tag, body, full)
+        return idx
 
     base_idx = index(base)
     ours_idx = index(ours)
@@ -147,10 +163,10 @@ def three_way_merge(base_path: str, ours_path: str, theirs_path: str,
                 resolved = run_llm(prompt)
                 llm_calls += 1
                 if resolved:
-                    # If LLM returned multiple tagged entries, split them
-                    if '⟨machine:' in resolved and '\n§\n' in resolved:
-                        kept.extend(
-                            b.strip() for b in ENTRY_SPLIT_RE.split(resolved) if b.strip())
+                    # If LLM returned multiple tagged entries, split via parse_entries
+                    if '⟨machine:' in resolved:
+                        parsed = parse_entries(resolved)
+                        kept.extend(full for _, _, full in parsed)
                     else:
                         kept.append(resolved)
                 else:

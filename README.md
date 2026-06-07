@@ -160,6 +160,9 @@ curl -sSL https://raw.githubusercontent.com/B1Z0N/hermes-mesh/v1.0.1/setup.sh | 
 # Or clone + verify, then run locally:
 git clone --branch v1.0.1 https://github.com/B1Z0N/hermes-mesh.git
 cd hermes-mesh && bash setup.sh
+
+# Verify SHA256 checksum:
+sha256sum -c <<< "e62a0beb6577df18fae8afbf4e39a4b11f934ecc0d27b87a8a27e7836b88f52a  setup.sh" && bash setup.sh
 ```
 
 ## 🧪 Development
@@ -177,7 +180,7 @@ Versioning follows [Keep a Changelog](https://keepachangelog.com/). Release tags
 
 - **Export before import** — local edits are never destroyed by a stale remote copy
 - **No silent failures** — every error is captured to the log with diagnostics
-- **Skills conflicts** — warn in red with `--force-push`/`--force-pull` hint, don't block, local version wins
+- **Skills conflicts** — warn in red with `--force-push`/`--force-pull` hint, don't block, local version wins. Use `--dry-run` to preview what would be lost before syncing.
 - **Three-way memory merge** — `§`-entry diffing, LLM only when both sides disagree
 - **Coordinator SPOF** — workers degrade gracefully (warn + continue), but skills/memory drift until coordinator returns. Run a coordinator on an always-on machine.
 - **LLM conflicts** — sequential, 120s timeout per conflict. Worst case N × 120s. In practice, conflicts are rare (only when both sides edit the same entry differently).
