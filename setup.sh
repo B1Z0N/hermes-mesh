@@ -103,7 +103,7 @@ DEFAULT_NAME=$(hostname -s 2>/dev/null || echo "machine")
 prompt "1. Machine name" "$DEFAULT_NAME" MACHINE_NAME
 # Validate machine name: TOML-safe (alphanumeric, hyphens, underscores only)
 if ! [[ "$MACHINE_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-    fail "Machine name must contain only letters, numbers, hyphens, and underscores (got: '$MACHINE_NAME')"
+    fail "Machine name must match [a-zA-Z0-9_-] — no spaces, quotes, or special characters (got: '$MACHINE_NAME')"
 fi
 
 echo ""
