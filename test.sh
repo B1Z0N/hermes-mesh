@@ -44,6 +44,25 @@ setup_test_env() {
     echo "# Durable Memory" > "$TEST_HOME/.hermes/memories/MEMORY.md"
     echo "# User Profile" > "$TEST_HOME/.hermes/memories/USER.md"
 
+    # ── mock crontab (isolate tests from real crontab) ──────────
+    MOCK_BIN="$TEST_HOME/.mock-bin"
+    mkdir -p "$MOCK_BIN"
+    cat > "$MOCK_BIN/crontab" << 'CRONMOCK'
+#!/usr/bin/env bash
+# Mock crontab for test isolation — operates on MOCK_CRON_FILE
+MOCK="${MOCK_CRON_FILE:-/dev/null}"
+[ -f "$MOCK" ] || touch "$MOCK"
+case "${1:-}" in
+    -l) cat "$MOCK" 2>/dev/null ;;
+    -r) : > "$MOCK" ;;
+    *)  [ -f "${1:-}" ] && cp "$1" "$MOCK" ;;
+esac
+CRONMOCK
+    chmod +x "$MOCK_BIN/crontab"
+    export MOCK_CRON_FILE="$TEST_HOME/.test-crontab"
+    touch "$MOCK_CRON_FILE"
+    export PATH="$MOCK_BIN:$PATH"
+
     # Copy scripts to a local "dev repo" for setup.sh to seed from
     DEV_REPO="$TEST_HOME/hermes-mesh-dev"
     mkdir -p "$DEV_REPO"
@@ -82,8 +101,8 @@ test_setup_coordinator() {
     assert_contains "$(cat "$TEST_HOME/coord/hermes-mesh/config.toml")" "coordinator" "config has role"
     assert_contains "$(cat "$TEST_HOME/coord/hermes-mesh/config.toml")" "interval_minutes = 10" "config has interval"
 
-    # Cron should be installed
-    HOME="$TEST_HOME/coord" assert_contains "$(crontab -l 2>/dev/null || echo '')" "hermes-mesh/sync.sh" "cron job installed"
+    # Cron should be installed (uses mock crontab)
+    assert_contains "$(crontab -l 2>/dev/null || echo '')" "# hermes-mesh-sync" "cron job installed"
 
     # Verify git history
     cd "$TEST_HOME/coord/hermes-mesh"

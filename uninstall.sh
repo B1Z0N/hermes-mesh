@@ -115,7 +115,7 @@ if [ "$(uname -s)" = "Darwin" ]; then
     fi
 else
     TMP_CRON=$(mktemp)
-    if crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON"; then
+    if crontab -l 2>/dev/null | grep -v "# hermes-mesh-sync" > "$TMP_CRON"; then
         crontab "$TMP_CRON"
         ok "cron job removed"
     else

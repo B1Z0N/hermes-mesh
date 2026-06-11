@@ -330,9 +330,9 @@ EOF
     launchctl load "$PLIST" 2>/dev/null || true
     ok "launchd installed (~/Library/LaunchAgents/com.hermes.mesh-sync.plist)"
 else
-    CRON_JOB="*/$INTERVAL * * * * bash \"$WORKTREE/sync.sh\""
+    CRON_JOB="*/$INTERVAL * * * * bash \"$WORKTREE/sync.sh\"  # hermes-mesh-sync"
     TMP_CRON=$(mktemp)
-    crontab -l 2>/dev/null | grep -v "hermes-mesh/sync.sh" > "$TMP_CRON" || true
+    crontab -l 2>/dev/null | grep -v "# hermes-mesh-sync" > "$TMP_CRON" || true
     echo "$CRON_JOB" >> "$TMP_CRON"
     crontab "$TMP_CRON" 2>/dev/null || fail "crontab install failed"
     rm -f "$TMP_CRON"
